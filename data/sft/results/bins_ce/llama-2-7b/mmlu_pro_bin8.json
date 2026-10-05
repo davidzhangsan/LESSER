@@ -1,0 +1,1 @@
+{"task": "mmlu_pro", "bin": 8, "ce_loss": 1.982515662908554, "model": "meta-llama/Llama-2-7b-hf", "convention": "mean over dev queries of construct_test_sample CE"}

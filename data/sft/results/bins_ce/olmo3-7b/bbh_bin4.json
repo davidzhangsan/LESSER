@@ -1,0 +1,1 @@
+{"task": "bbh", "bin": 4, "ce_loss": 0.3243947787509288, "n_dev": 81, "model": "allenai/Olmo-3-1025-7B", "convention": "mean over dev queries of construct_test_sample CE", "env": "cluster; vllm/vllm-openai:v0.11.0 image with transformers 4.57.1", "seconds": 1155}

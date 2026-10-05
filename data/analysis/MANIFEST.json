@@ -1,0 +1,1259 @@
+{
+ "files": {
+  "audit/index.json": {
+   "sha256": "73e7f5d1218aea09ee4eec2c2ae183e57cd05e7099b35b5fa1ab0c9126e5717d",
+   "bytes": 16056,
+   "source": "compact per-candidate audit records (analysis/audit.py compact); source files and their sha256 in audit/index.json"
+  },
+  "audit/llama2_bbh.npz": {
+   "sha256": "bd738866541bbef08ab9c496d4545ac6fcbfc3cc949276b99f01bb5afce9963f",
+   "bytes": 1721719,
+   "source": "compact per-candidate audit records (analysis/audit.py compact); source files and their sha256 in audit/index.json"
+  },
+  "audit/llama2_codex.npz": {
+   "sha256": "3f3aa075e9c97c2e6c5d8a31818aae79f55226e0c07f9fa4d9f6ddc5b48a1933",
+   "bytes": 1727481,
+   "source": "compact per-candidate audit records (analysis/audit.py compact); source files and their sha256 in audit/index.json"
+  },
+  "audit/llama2_gsm8k.npz": {
+   "sha256": "27514193c4d3410ea237f811232fee582d93d6eb7b7cfd3eda54e43045ca8013",
+   "bytes": 1725704,
+   "source": "compact per-candidate audit records (analysis/audit.py compact); source files and their sha256 in audit/index.json"
+  },
+  "audit/llama2_mmlu_pro.npz": {
+   "sha256": "18bfa322605334a150172d7a5de915600d6f9367de437c7f5995ab914a252d7b",
+   "bytes": 1724333,
+   "source": "compact per-candidate audit records (analysis/audit.py compact); source files and their sha256 in audit/index.json"
+  },
+  "audit/llama2_tydiqa.npz": {
+   "sha256": "d727976d46415db7cedb6210f0d8a590a0ef2f82b4c29bc538fddd541a1b6f87",
+   "bytes": 1729968,
+   "source": "compact per-candidate audit records (analysis/audit.py compact); source files and their sha256 in audit/index.json"
+  },
+  "audit/llama3_bbh.npz": {
+   "sha256": "d0d83d01ee88f97c4a207db953a82fdd536d3047fdc0123c3d72e5eae5673e72",
+   "bytes": 1492199,
+   "source": "compact per-candidate audit records (analysis/audit.py compact); source files and their sha256 in audit/index.json"
+  },
+  "audit/llama3_codex.npz": {
+   "sha256": "eb8ba8ebfb85f60c3f0748a1bcb668451bf452bf96a2d94468e8ab5bf8716725",
+   "bytes": 1494164,
+   "source": "compact per-candidate audit records (analysis/audit.py compact); source files and their sha256 in audit/index.json"
+  },
+  "audit/llama3_gsm8k.npz": {
+   "sha256": "d6bcf98f1b405d3405343be85f4f5f2da832a7d62dc0a6c0a8766ab3a691b936",
+   "bytes": 1495943,
+   "source": "compact per-candidate audit records (analysis/audit.py compact); source files and their sha256 in audit/index.json"
+  },
+  "audit/llama3_mmlu_pro.npz": {
+   "sha256": "4bbeb87289551f8a5848859df79cba8f5121d1e7f5315fdfdcc901e147e11b4f",
+   "bytes": 1493250,
+   "source": "compact per-candidate audit records (analysis/audit.py compact); source files and their sha256 in audit/index.json"
+  },
+  "audit/llama3_tydiqa.npz": {
+   "sha256": "869666be47a27eefa47399ef1729773f79cdadc36ce80506bf8f1ea738d858fb",
+   "bytes": 1499981,
+   "source": "compact per-candidate audit records (analysis/audit.py compact); source files and their sha256 in audit/index.json"
+  },
+  "audit/olmo3_bbh.npz": {
+   "sha256": "af0519b9d4838b4644358c586b28b635eaa9baa3c26205c7c90462c78fde0195",
+   "bytes": 1725940,
+   "source": "compact per-candidate audit records (analysis/audit.py compact); source files and their sha256 in audit/index.json"
+  },
+  "audit/olmo3_codex.npz": {
+   "sha256": "4485c98f0a96fabe5948dec342fe09ada1f26b4ef4b5304f9430de40083e0495",
+   "bytes": 1152357,
+   "source": "compact per-candidate audit records (analysis/audit.py compact); source files and their sha256 in audit/index.json"
+  },
+  "audit/olmo3_gsm8k.npz": {
+   "sha256": "122944df9a0aa5003505750c7e9bae728fae7ef5d38d30f5201e4373e85386a8",
+   "bytes": 1153494,
+   "source": "compact per-candidate audit records (analysis/audit.py compact); source files and their sha256 in audit/index.json"
+  },
+  "audit/olmo3_mmlu_pro.npz": {
+   "sha256": "4c0b40b2e4e373b131b76a6b3c27d1d17baa123f761381485d10d8b3da0e0ebe",
+   "bytes": 1613101,
+   "source": "compact per-candidate audit records (analysis/audit.py compact); source files and their sha256 in audit/index.json"
+  },
+  "audit/olmo3_tydiqa.npz": {
+   "sha256": "0bdf2077640924e7a05437eb781139e4e271de4ff7a177f49154dedc726faa48",
+   "bytes": 1156577,
+   "source": "compact per-candidate audit records (analysis/audit.py compact); source files and their sha256 in audit/index.json"
+  },
+  "audit/qwen_bbh.npz": {
+   "sha256": "99b4375846e5e4611c8564bfbacd9d8a072101edca952f3c82150ea9d227b4c9",
+   "bytes": 1862161,
+   "source": "compact per-candidate audit records (analysis/audit.py compact); source files and their sha256 in audit/index.json"
+  },
+  "audit/qwen_codex.npz": {
+   "sha256": "d1e1ee2639f4fc3f36950acd5616dfdde5ba564973c13823c7ab7e3432f2cf60",
+   "bytes": 1865001,
+   "source": "compact per-candidate audit records (analysis/audit.py compact); source files and their sha256 in audit/index.json"
+  },
+  "audit/qwen_gsm8k.npz": {
+   "sha256": "18d35e4b37db36d2afb88379c3f94359aa87b0bfa479ead30b4a1b94ba25eef4",
+   "bytes": 1866910,
+   "source": "compact per-candidate audit records (analysis/audit.py compact); source files and their sha256 in audit/index.json"
+  },
+  "audit/qwen_mmlu_pro.npz": {
+   "sha256": "3587a8d2ae29c16b632c3f41aa02e7c9def333b786b0db54b19f605fa850dbdf",
+   "bytes": 1865677,
+   "source": "compact per-candidate audit records (analysis/audit.py compact); source files and their sha256 in audit/index.json"
+  },
+  "audit/qwen_tydiqa.npz": {
+   "sha256": "af6ded4248ab40d752f53cab2331160f975d13554893b4e667cf72165d74a094",
+   "bytes": 1867939,
+   "source": "compact per-candidate audit records (analysis/audit.py compact); source files and their sha256 in audit/index.json"
+  },
+  "batch_alignment/batches/llama2.json": {
+   "sha256": "284e4d7f2b56b2ea705044e3ea3e36197041671b22e09c751fcf6daf33ed4083",
+   "bytes": 267189,
+   "source": "1,024-example samples (analysis/batch_alignment.py batches) of the k = 5,000 selections"
+  },
+  "batch_alignment/batches/llama3.json": {
+   "sha256": "16b318a3262f5dd0d996c3dc0d3b064517fb1f8f5ae509fb67453f45e54a76e2",
+   "bytes": 267126,
+   "source": "1,024-example samples (analysis/batch_alignment.py batches) of the k = 5,000 selections"
+  },
+  "batch_alignment/batches/olmo3.json": {
+   "sha256": "fb26a9e6cc2f86d057b45cf0ae76941ab9d0b21ab0a7379c651d4fdf99a945d0",
+   "bytes": 267332,
+   "source": "1,024-example samples (analysis/batch_alignment.py batches) of the k = 5,000 selections"
+  },
+  "batch_alignment/batches/qwen.json": {
+   "sha256": "ea8bc418d19ec5c4be537a7b172caa636d9aa72399f82dd1de79a4bed64c44e1",
+   "bytes": 267029,
+   "source": "1,024-example samples (analysis/batch_alignment.py batches) of the k = 5,000 selections"
+  },
+  "batch_alignment/gram/llama2_bbh.npz": {
+   "sha256": "cdb6afe5e5894b1f888a62d89f91e788aa210a44973a5d574e34e52eb47a355f",
+   "bytes": 84502,
+   "source": "Gram matrices (analysis/batch_alignment.py gram) of the chunk-gradient sketches listed in each file's 'sources'"
+  },
+  "batch_alignment/gram/llama2_codex.npz": {
+   "sha256": "c16cc9e07934a6bdd8eabd728dc17090f7da4dd1db8d004ef05750860ae28fc3",
+   "bytes": 84543,
+   "source": "Gram matrices (analysis/batch_alignment.py gram) of the chunk-gradient sketches listed in each file's 'sources'"
+  },
+  "batch_alignment/gram/llama2_gsm8k.npz": {
+   "sha256": "fb880ab35535f870d5b7326bf13a453bb56a8628635d3d4a3f284f5e89cd7184",
+   "bytes": 84424,
+   "source": "Gram matrices (analysis/batch_alignment.py gram) of the chunk-gradient sketches listed in each file's 'sources'"
+  },
+  "batch_alignment/gram/llama2_mmlu_pro.npz": {
+   "sha256": "6fde806a36f64e4ecaf5ebc501dc57e14eafb6ef0f09456212c717d3b834ae72",
+   "bytes": 84347,
+   "source": "Gram matrices (analysis/batch_alignment.py gram) of the chunk-gradient sketches listed in each file's 'sources'"
+  },
+  "batch_alignment/gram/llama2_tydiqa.npz": {
+   "sha256": "c2927d7c6709e4697b6e3fa00b690cefb3ed5ef797d0f01d226cbdbc86bba762",
+   "bytes": 84582,
+   "source": "Gram matrices (analysis/batch_alignment.py gram) of the chunk-gradient sketches listed in each file's 'sources'"
+  },
+  "batch_alignment/gram/llama3_bbh.npz": {
+   "sha256": "2f69523390f0a8a95897befed2a009309c67f7fa7115115830438ef6130ad30f",
+   "bytes": 84463,
+   "source": "Gram matrices (analysis/batch_alignment.py gram) of the chunk-gradient sketches listed in each file's 'sources'"
+  },
+  "batch_alignment/gram/llama3_codex.npz": {
+   "sha256": "79972cccf96f1b441741e6e3a439b35e876409bc23e357a80b1075ad79444c10",
+   "bytes": 84420,
+   "source": "Gram matrices (analysis/batch_alignment.py gram) of the chunk-gradient sketches listed in each file's 'sources'"
+  },
+  "batch_alignment/gram/llama3_gsm8k.npz": {
+   "sha256": "a022aab73a264e8ec0a77ba0a76e5d8bce66ba2bfe08918dc27a323a6978f625",
+   "bytes": 84401,
+   "source": "Gram matrices (analysis/batch_alignment.py gram) of the chunk-gradient sketches listed in each file's 'sources'"
+  },
+  "batch_alignment/gram/llama3_mmlu_pro.npz": {
+   "sha256": "96a48d170cd1747fb77c2e614bb06a40c2d202e5d69d88d40e93319ae1468543",
+   "bytes": 84329,
+   "source": "Gram matrices (analysis/batch_alignment.py gram) of the chunk-gradient sketches listed in each file's 'sources'"
+  },
+  "batch_alignment/gram/llama3_tydiqa.npz": {
+   "sha256": "beac201b34573af7bac0f1cc427e757c2c48558e753794eb061e9c5d471fb3fd",
+   "bytes": 84481,
+   "source": "Gram matrices (analysis/batch_alignment.py gram) of the chunk-gradient sketches listed in each file's 'sources'"
+  },
+  "batch_alignment/gram/olmo3_bbh.npz": {
+   "sha256": "710bf74730d9933640e34a5f6e3c5ee964d5d058af100cc936467974f9ec8d9d",
+   "bytes": 85176,
+   "source": "Gram matrices (analysis/batch_alignment.py gram) of the chunk-gradient sketches listed in each file's 'sources'"
+  },
+  "batch_alignment/gram/olmo3_codex.npz": {
+   "sha256": "1b4b53c917645c5086ed2e8963fc331a983681f500d6090d50a5f4cce37af391",
+   "bytes": 85581,
+   "source": "Gram matrices (analysis/batch_alignment.py gram) of the chunk-gradient sketches listed in each file's 'sources'"
+  },
+  "batch_alignment/gram/olmo3_gsm8k.npz": {
+   "sha256": "87802943d2b2708ebb93dfc07691d5e1aaf1ffbcfbc68f13b1e00c7340289696",
+   "bytes": 85160,
+   "source": "Gram matrices (analysis/batch_alignment.py gram) of the chunk-gradient sketches listed in each file's 'sources'"
+  },
+  "batch_alignment/gram/olmo3_mmlu_pro.npz": {
+   "sha256": "6e854e9cf73142e1d243840718d4b000730f8788a722699c3ad23976d9bbfc8d",
+   "bytes": 85071,
+   "source": "Gram matrices (analysis/batch_alignment.py gram) of the chunk-gradient sketches listed in each file's 'sources'"
+  },
+  "batch_alignment/gram/olmo3_tydiqa.npz": {
+   "sha256": "e1bd76b13399bc030ed27d5275b54691f2b5f712eb664003aaded87c273ac1ce",
+   "bytes": 85191,
+   "source": "Gram matrices (analysis/batch_alignment.py gram) of the chunk-gradient sketches listed in each file's 'sources'"
+  },
+  "batch_alignment/gram/qwen_bbh.npz": {
+   "sha256": "04d0ebbb46a1f8cddad4d48083adbc8fd31b9625e63df7fd1ad87a2415642921",
+   "bytes": 84453,
+   "source": "Gram matrices (analysis/batch_alignment.py gram) of the chunk-gradient sketches listed in each file's 'sources'"
+  },
+  "batch_alignment/gram/qwen_codex.npz": {
+   "sha256": "71a5268c92286e80577d1674219cae007d09b2e200d82c59187c2ef876326525",
+   "bytes": 84602,
+   "source": "Gram matrices (analysis/batch_alignment.py gram) of the chunk-gradient sketches listed in each file's 'sources'"
+  },
+  "batch_alignment/gram/qwen_gsm8k.npz": {
+   "sha256": "89ee845c81ed997c1a57bb99fe1381dfeda803f9e9f0a872619d2d321da19327",
+   "bytes": 84486,
+   "source": "Gram matrices (analysis/batch_alignment.py gram) of the chunk-gradient sketches listed in each file's 'sources'"
+  },
+  "batch_alignment/gram/qwen_mmlu_pro.npz": {
+   "sha256": "c9589ccca3664cfdfa6f3332efeb9aa17fd9f5836cffeb175059f3df2c35c6fa",
+   "bytes": 84385,
+   "source": "Gram matrices (analysis/batch_alignment.py gram) of the chunk-gradient sketches listed in each file's 'sources'"
+  },
+  "batch_alignment/gram/qwen_tydiqa.npz": {
+   "sha256": "dbb41a4a6b57d565bd79872ecd7241874e809fac7a6c0eb9dd7d0cf507d39359",
+   "bytes": 84556,
+   "source": "Gram matrices (analysis/batch_alignment.py gram) of the chunk-gradient sketches listed in each file's 'sources'"
+  },
+  "reference/audit_port_cpu_check.json": {
+   "sha256": "b6a8a348b926cec3b214d71c6ab6b71dc7c031062052ac5dadc91bbd8cc54ee7",
+   "bytes": 661,
+   "source": "CPU check of analysis/audit.py compute against the paper's records (audit.py compare)"
+  },
+  "reference/original_outputs/b128_comparison.json": {
+   "sha256": "e583e77070b9222347887e3b193977e0187a514f3a5f61a272139647abe86cbb",
+   "bytes": 6308,
+   "source": "original analysis outputs that the reported numbers were read from"
+  },
+  "reference/original_outputs/body_vs_head_on_picks.json": {
+   "sha256": "e25dd2d2fdc91d9d6f83ff3d2a8a41d1440db183deed0a970e0e55cc61c23687",
+   "bytes": 5924,
+   "source": "original analysis outputs that the reported numbers were read from"
+  },
+  "reference/original_outputs/head_full_rank.json": {
+   "sha256": "728c372149ad562bf39b95a6337e82d1091b89a182e88829b513d14879214c59",
+   "bytes": 3461,
+   "source": "original analysis outputs that the reported numbers were read from"
+  },
+  "reference/original_outputs/layer_cosine_curve.json": {
+   "sha256": "548e2cb9323f7c839568f98c2314797178b3450a17aa65281bdf9b47f64e63c8",
+   "bytes": 28277,
+   "source": "original analysis outputs that the reported numbers were read from"
+  },
+  "reference/original_outputs/selection_overlap.json": {
+   "sha256": "613fbbda940282b73aa16dd2930f4666866d93aeaa5929ec721773e12dddfe06",
+   "bytes": 1461,
+   "source": "original analysis outputs that the reported numbers were read from"
+  },
+  "reference/original_outputs/self_agreement.json": {
+   "sha256": "1926b5895afdd2ea111f49e3608436f0f6362434e265f1a7415f712993fc7426",
+   "bytes": 11763,
+   "source": "original analysis outputs that the reported numbers were read from"
+  },
+  "reference/original_outputs/uncentered_batch_cosine.json": {
+   "sha256": "becbfc17b9038b054a5ff46770e6aade609f98f82a5a67cd1c92f5494a26eb7c",
+   "bytes": 4789,
+   "source": "original analysis outputs that the reported numbers were read from"
+  },
+  "reference/paper_figures/fig7a_alignment_base.json": {
+   "sha256": "5ba324746f7ce0aa674e1da1411d5bab6b314c2abe13d5f6a50e529add1e6865",
+   "bytes": 278,
+   "source": "JSON payloads read from the paper's figure PDFs (analysis/verify.py payloads)"
+  },
+  "reference/paper_figures/fig7b_loss_share.json": {
+   "sha256": "9ec8adeefaaf350bd2043e76ed4420a5a5e54bb57b6a1e45217b74f2045dba7c",
+   "bytes": 706,
+   "source": "JSON payloads read from the paper's figure PDFs (analysis/verify.py payloads)"
+  },
+  "reference/paper_figures/layer_curve.json": {
+   "sha256": "ef0db967399d04d7cd6483efc586e8f5217b64717c974434e9f684ad5565ea38",
+   "bytes": 33899,
+   "source": "JSON payloads read from the paper's figure PDFs (analysis/verify.py payloads)"
+  },
+  "reference/paper_figures/query_loss_curves.json": {
+   "sha256": "7c35024b495a4c4290190b4c50ad2c7914477d98d2156e342cb2e5c4abe17dd2",
+   "bytes": 452,
+   "source": "JSON payloads read from the paper's figure PDFs (analysis/verify.py payloads)"
+  },
+  "reference/paper_numbers.json": {
+   "sha256": "86dfb46be89c35b4ff97e79f2d3d4b36181f9d55a9373d71eddb8b9bd35c0220",
+   "bytes": 125361,
+   "source": "numbers as printed in the paper, and the per-pair curves plotted in the Appendix F.3 figure, extracted from that figure's four source files (sha256 in F3_query_loss_curves.source_sha256)"
+  },
+  "selections/k5000/llama2_bbh_randB.json": {
+   "sha256": "c227b0d9e95aa9a5394224f5ce4f4f9e8558a2597d8b66043a8ca88575d83c9a",
+   "bytes": 37206,
+   "source": "the randB uniform pool samples (analysis/selections.py build)"
+  },
+  "selections/k5000/llama2_codex_randB.json": {
+   "sha256": "e5603abe32bf63ab3bebd2c1acace502979f11c00cf26e84cbb31f942cd78685",
+   "bytes": 37207,
+   "source": "the randB uniform pool samples (analysis/selections.py build)"
+  },
+  "selections/k5000/llama2_gsm8k_randB.json": {
+   "sha256": "9d7f2def7270955004f2ecf50c0a2c2ff984a1b01f4f8b7e96e34471ebc8b9ac",
+   "bytes": 37264,
+   "source": "the randB uniform pool samples (analysis/selections.py build)"
+  },
+  "selections/k5000/llama2_mmlu_pro_randB.json": {
+   "sha256": "3fb48302d3b4208752e395f979b2a250e053dd641891a5e6927db5b61baed508",
+   "bytes": 37150,
+   "source": "the randB uniform pool samples (analysis/selections.py build)"
+  },
+  "selections/k5000/llama2_tydiqa_randB.json": {
+   "sha256": "bf4539d9304f4e14b252bf40cbab2c9ed747b98500a9e74f096b873757e7f19f",
+   "bytes": 37110,
+   "source": "the randB uniform pool samples (analysis/selections.py build)"
+  },
+  "selections/k5000/llama3_bbh_randB.json": {
+   "sha256": "c227b0d9e95aa9a5394224f5ce4f4f9e8558a2597d8b66043a8ca88575d83c9a",
+   "bytes": 37206,
+   "source": "the randB uniform pool samples (analysis/selections.py build)"
+  },
+  "selections/k5000/llama3_codex_randB.json": {
+   "sha256": "e5603abe32bf63ab3bebd2c1acace502979f11c00cf26e84cbb31f942cd78685",
+   "bytes": 37207,
+   "source": "the randB uniform pool samples (analysis/selections.py build)"
+  },
+  "selections/k5000/llama3_gsm8k_randB.json": {
+   "sha256": "9d7f2def7270955004f2ecf50c0a2c2ff984a1b01f4f8b7e96e34471ebc8b9ac",
+   "bytes": 37264,
+   "source": "the randB uniform pool samples (analysis/selections.py build)"
+  },
+  "selections/k5000/llama3_mmlu_pro_randB.json": {
+   "sha256": "3fb48302d3b4208752e395f979b2a250e053dd641891a5e6927db5b61baed508",
+   "bytes": 37150,
+   "source": "the randB uniform pool samples (analysis/selections.py build)"
+  },
+  "selections/k5000/llama3_tydiqa_randB.json": {
+   "sha256": "bf4539d9304f4e14b252bf40cbab2c9ed747b98500a9e74f096b873757e7f19f",
+   "bytes": 37110,
+   "source": "the randB uniform pool samples (analysis/selections.py build)"
+  },
+  "selections/k5000/olmo3_bbh_randB.json": {
+   "sha256": "c227b0d9e95aa9a5394224f5ce4f4f9e8558a2597d8b66043a8ca88575d83c9a",
+   "bytes": 37206,
+   "source": "the randB uniform pool samples (analysis/selections.py build)"
+  },
+  "selections/k5000/olmo3_codex_randB.json": {
+   "sha256": "e5603abe32bf63ab3bebd2c1acace502979f11c00cf26e84cbb31f942cd78685",
+   "bytes": 37207,
+   "source": "the randB uniform pool samples (analysis/selections.py build)"
+  },
+  "selections/k5000/olmo3_gsm8k_randB.json": {
+   "sha256": "9d7f2def7270955004f2ecf50c0a2c2ff984a1b01f4f8b7e96e34471ebc8b9ac",
+   "bytes": 37264,
+   "source": "the randB uniform pool samples (analysis/selections.py build)"
+  },
+  "selections/k5000/olmo3_mmlu_pro_randB.json": {
+   "sha256": "3fb48302d3b4208752e395f979b2a250e053dd641891a5e6927db5b61baed508",
+   "bytes": 37150,
+   "source": "the randB uniform pool samples (analysis/selections.py build)"
+  },
+  "selections/k5000/olmo3_tydiqa_randB.json": {
+   "sha256": "bf4539d9304f4e14b252bf40cbab2c9ed747b98500a9e74f096b873757e7f19f",
+   "bytes": 37110,
+   "source": "the randB uniform pool samples (analysis/selections.py build)"
+  },
+  "selections/k5000/qwen_bbh_randB.json": {
+   "sha256": "c227b0d9e95aa9a5394224f5ce4f4f9e8558a2597d8b66043a8ca88575d83c9a",
+   "bytes": 37206,
+   "source": "the randB uniform pool samples (analysis/selections.py build)"
+  },
+  "selections/k5000/qwen_codex_randB.json": {
+   "sha256": "e5603abe32bf63ab3bebd2c1acace502979f11c00cf26e84cbb31f942cd78685",
+   "bytes": 37207,
+   "source": "the randB uniform pool samples (analysis/selections.py build)"
+  },
+  "selections/k5000/qwen_gsm8k_randB.json": {
+   "sha256": "9d7f2def7270955004f2ecf50c0a2c2ff984a1b01f4f8b7e96e34471ebc8b9ac",
+   "bytes": 37264,
+   "source": "the randB uniform pool samples (analysis/selections.py build)"
+  },
+  "selections/k5000/qwen_mmlu_pro_randB.json": {
+   "sha256": "3fb48302d3b4208752e395f979b2a250e053dd641891a5e6927db5b61baed508",
+   "bytes": 37150,
+   "source": "the randB uniform pool samples (analysis/selections.py build)"
+  },
+  "selections/k5000/qwen_tydiqa_randB.json": {
+   "sha256": "bf4539d9304f4e14b252bf40cbab2c9ed747b98500a9e74f096b873757e7f19f",
+   "bytes": 37110,
+   "source": "the randB uniform pool samples (analysis/selections.py build)"
+  },
+  "trajectories/loss/index.json": {
+   "sha256": "d1962d25181881a871dc071e41596591b7cebc206840071b307757a88192e291",
+   "bytes": 11960,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_bbh_less_s0_n5000.json.gz": {
+   "sha256": "d845528a0822c377bf6f88d1346999d4139a0b19b61c0f9acf5b9d4ff854bbdc",
+   "bytes": 54479,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_bbh_less_s1_n5000.json.gz": {
+   "sha256": "a1680e91ded83625ffdfc4a4ecfaa99cbb3bbac2bdf7af1aed9fd770b68f61cc",
+   "bytes": 54468,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_bbh_lesser_s0_n5000.json.gz": {
+   "sha256": "c804e08140bde6c02f347bfc269262b273958efbab07eb4ef125e5284f05638c",
+   "bytes": 54515,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_bbh_lesser_s1_n5000.json.gz": {
+   "sha256": "bd8eb65a1cb822af84b1e7a9afe7650852925f3123ce8f3f035b222bc04a71d9",
+   "bytes": 54408,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_bbh_randA_s0_n5000.json.gz": {
+   "sha256": "5dd1c8e506c6063b09e2fbfd7ebd5e6dc42ed34444f8f21a8af8316bfa0052ea",
+   "bytes": 54510,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_bbh_randB_s0_n5000.json.gz": {
+   "sha256": "74f90c79786314de40962d5b1420a8e2dd46857e646955f621e03239434e0ef4",
+   "bytes": 54365,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_codex_less_s0_n5000.json.gz": {
+   "sha256": "fd8bec6126facc71097ceec9cf2b53bfedeac69c13a92294ef952f85987578a5",
+   "bytes": 13180,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_codex_less_s1_n5000.json.gz": {
+   "sha256": "a744d1023f34266e6fb4176d2d2ea434a81de2e724248d63a5cb18946accc71c",
+   "bytes": 13139,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_codex_lesser_s0_n5000.json.gz": {
+   "sha256": "79e098f631bf8a20255ff0e3ceba7993b191c6c0d8d5182d897c7a556db81226",
+   "bytes": 13136,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_codex_lesser_s1_n5000.json.gz": {
+   "sha256": "326aa0fe74473e728e72a2f4820d2ad35e17bfab6c4ffe5aba6515c5ca40e71b",
+   "bytes": 13148,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_codex_randA_s0_n5000.json.gz": {
+   "sha256": "a555d5bfa0621a7a3be1bc9272c70876639771ee96145eb7f9e8531d596f4b60",
+   "bytes": 13141,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_codex_randB_s0_n5000.json.gz": {
+   "sha256": "c85f5cb55d370b86a26912922596bb1ca694b33f6fc4bb8df2fd01a2045ceb82",
+   "bytes": 13123,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_gsm8k_less_s0_n5000.json.gz": {
+   "sha256": "4cba26e8866ef2c315f66f6d289f9f7c335c9c5802a1e4020c0a98e94b85c086",
+   "bytes": 7288,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_gsm8k_less_s1_n5000.json.gz": {
+   "sha256": "597660dedd736f95398826a511a296afcda3b5c8f240eda775752bbdc05ba6f6",
+   "bytes": 7264,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_gsm8k_lesser_s0_n5000.json.gz": {
+   "sha256": "7c83d77c83a5a2f49950bce949d37e1927945c546e269cda13b08974e01f9eed",
+   "bytes": 7291,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_gsm8k_lesser_s1_n5000.json.gz": {
+   "sha256": "c80a822bac4ba0e18311648bfef13945516edf8de97dc37063f483244890f0b1",
+   "bytes": 7273,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_gsm8k_randA_s0_n5000.json.gz": {
+   "sha256": "939b80e105444ec63b334b836b16d076a315e2e25f4734dbff67a4de2ddc2d02",
+   "bytes": 7234,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_gsm8k_randB_s0_n5000.json.gz": {
+   "sha256": "6f68ffff1d1b7998fd60720ea1d008d8274c38c7dfcaf62c1952cb77664ad50c",
+   "bytes": 7231,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_mmlu_pro_less_s0_n5000.json.gz": {
+   "sha256": "b2bd9786a038a6cc7296e1b76cd751885ad12534dfe608fd0187da4f6369254d",
+   "bytes": 49734,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_mmlu_pro_less_s1_n5000.json.gz": {
+   "sha256": "32f23acb5954d2457f36332fcc386b83700611f8415255d1a00d820dc3151607",
+   "bytes": 49909,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_mmlu_pro_lesser_s0_n5000.json.gz": {
+   "sha256": "0963e4ac6f25eae62b8fc0bd3e9dc8419be3db407ad0cc95daa04b31088954dd",
+   "bytes": 49814,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_mmlu_pro_lesser_s1_n5000.json.gz": {
+   "sha256": "df93ab5117a79b98c331508fad2d15d123a901f8767ac93e787ff7fec55978f9",
+   "bytes": 49807,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_mmlu_pro_randA_s0_n5000.json.gz": {
+   "sha256": "266508f1047ea151b529014e48c5b0387e5d7d0731d8e3bb5ee74174bced8f44",
+   "bytes": 49574,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_mmlu_pro_randB_s0_n5000.json.gz": {
+   "sha256": "8f339f40ab3e261fd30532754a5712f1fcc8fc68fe362cc0cb02e0785d81eea9",
+   "bytes": 49644,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_tydiqa_less_s0_n5000.json.gz": {
+   "sha256": "028cd87dc66d4d3f8d588fb7296599de672799906a36de8129165d77b6398adb",
+   "bytes": 8383,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_tydiqa_less_s1_n5000.json.gz": {
+   "sha256": "4f846d0727a68901ff607b9bd79bf3bf764b61f884ca9fcc3d3c3e5b76b6fb5c",
+   "bytes": 8325,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_tydiqa_lesser_s0_n5000.json.gz": {
+   "sha256": "bf77625eb31e7262643e69791b11e39ebef8804ae2e2d8c0a42b51e2ac1e0fe0",
+   "bytes": 8346,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_tydiqa_lesser_s1_n5000.json.gz": {
+   "sha256": "74a20bfd0795d35d2d038c2d2920040b07627c3fb398923b0aea5e14d4cf435b",
+   "bytes": 8342,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_tydiqa_randA_s0_n5000.json.gz": {
+   "sha256": "c9019be4ddb1d0a4750ed62504b06c5cc4e61c9af23be55284d02a79d7505e73",
+   "bytes": 8273,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama2_tydiqa_randB_s0_n5000.json.gz": {
+   "sha256": "ca699c8f8c7ac5dc8e30789eb2cb528622b06097ce808018c6183064fd70ad3c",
+   "bytes": 8317,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_bbh_less_s0_n5000.json.gz": {
+   "sha256": "4e8fda13b1fe8e1fe5ef9b9c82566573b79eecb3b56005b6b8c9221d5e5aeda5",
+   "bytes": 54310,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_bbh_less_s1_n5000.json.gz": {
+   "sha256": "430b091be7474bcecb99819647fe0fb7f6dee3764c2eb2fd751a127ba2d19747",
+   "bytes": 54216,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_bbh_lesser_s0_n5000.json.gz": {
+   "sha256": "fb481906a20fbe9e7e993ce4a8e551051a31f0eeecc936b54ff393f291089f6c",
+   "bytes": 54268,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_bbh_lesser_s1_n5000.json.gz": {
+   "sha256": "8d48c203723df325fbf93373438fb8b4da35cec613503647e65c0fcb51912306",
+   "bytes": 54271,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_bbh_randA_s0_n5000.json.gz": {
+   "sha256": "b9f84186346b3f8c90d9a080dc957639502a1345e19ccf8d4fdfc7e130ce419d",
+   "bytes": 54235,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_bbh_randB_s0_n5000.json.gz": {
+   "sha256": "62fd72725169d5145e17e5a6370a3f99679d33810b85168c4f1b09baae0ab294",
+   "bytes": 54334,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_codex_less_s0_n5000.json.gz": {
+   "sha256": "6b0d58d36662317200328610f712b575d2439ec1b028589a66fd8b4cb1b148c4",
+   "bytes": 13172,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_codex_less_s1_n5000.json.gz": {
+   "sha256": "b4986378d11f94e7403ac423d2a8c238b6a02a7d21e7518c83ea705e1056008b",
+   "bytes": 13190,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_codex_lesser_s0_n5000.json.gz": {
+   "sha256": "5a0f5e906598fedb1d96b33ab5f1e77dcdc0bdf29e6f2584700b8673b9c4f97e",
+   "bytes": 13198,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_codex_lesser_s1_n5000.json.gz": {
+   "sha256": "7700fe2e5c2ac6d6fe74c92e2401aee6036ca0ca093dfd7056072420776dc65e",
+   "bytes": 13199,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_codex_randA_s0_n5000.json.gz": {
+   "sha256": "340694c63849764ac1560c3236aaba5576af83ca8bb5c2fb0177164eec12e4af",
+   "bytes": 13184,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_codex_randB_s0_n5000.json.gz": {
+   "sha256": "c8544c631cb99ceda6cd225f8e728f3c50216ccc618c041c066e09a1b38859b2",
+   "bytes": 13070,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_gsm8k_less_s0_n5000.json.gz": {
+   "sha256": "2a5b5fed653bab60dfa113477e7638fdacfebb2e4797efa71272003d5e4a8749",
+   "bytes": 7191,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_gsm8k_less_s1_n5000.json.gz": {
+   "sha256": "f5534ccbf7358b119b645476513daad3174f75ad65938d6e5a2096dfbcff162f",
+   "bytes": 7232,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_gsm8k_lesser_s0_n5000.json.gz": {
+   "sha256": "db16be511fc68bc5bb1e49a98a0e1f272b4ac146995990515ad78889dc1ecefc",
+   "bytes": 7243,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_gsm8k_lesser_s1_n5000.json.gz": {
+   "sha256": "9a879da60374adc9bb5384420361fa334808f3a23af8c60be40dea90d896af61",
+   "bytes": 7210,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_gsm8k_randA_s0_n5000.json.gz": {
+   "sha256": "bbe4f43eb244729ad26675cd5906701de465b636d8e4a4a4380289b0bdd016ec",
+   "bytes": 7258,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_gsm8k_randB_s0_n5000.json.gz": {
+   "sha256": "20d79f2bb9de3a8101ba662057d235730b71a20c4bec28b0059cf83604bcf804",
+   "bytes": 7243,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_mmlu_pro_less_s0_n5000.json.gz": {
+   "sha256": "94e61b16941017b6b35c27eb1b59f19c717fdc5b379a2fb8fa524a9ed3f40fc9",
+   "bytes": 49946,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_mmlu_pro_less_s1_n5000.json.gz": {
+   "sha256": "a38badce8d97ca1b48666b7e4e5965b8dc2864b74c02659a756f69cb2b901c37",
+   "bytes": 49979,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_mmlu_pro_lesser_s0_n5000.json.gz": {
+   "sha256": "824e4112ec3f5e78088dd2447063a545f25fce7e3204086f4bda549f8358b134",
+   "bytes": 49719,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_mmlu_pro_lesser_s1_n5000.json.gz": {
+   "sha256": "977b759cf59012e323d0b756ccb45537a6e1625e1bfac68af1fe9df7b16934c7",
+   "bytes": 49912,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_mmlu_pro_randA_s0_n5000.json.gz": {
+   "sha256": "60f2345ce18d60c112768bf7e14997e3e3dcda899e662a77b512c771a92706eb",
+   "bytes": 49671,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_mmlu_pro_randB_s0_n5000.json.gz": {
+   "sha256": "00908c77652339af8c0860294ae728a9e6b5bc876b4f23ae09a39436e576bb58",
+   "bytes": 49706,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_tydiqa_less_s0_n5000.json.gz": {
+   "sha256": "600cb6ca06012e82daa915a9616e120bd43eb32b0bf967fb7415f6a466986e8c",
+   "bytes": 8216,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_tydiqa_less_s1_n5000.json.gz": {
+   "sha256": "4e0f964bf05bbe8571cd0fb294c6980c62bf81d7adc398b336f30064db2cd8c4",
+   "bytes": 8168,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_tydiqa_lesser_s0_n5000.json.gz": {
+   "sha256": "f3b4ef1e792a8397557d6278b5ad2382943192579f2044eb4958ec4355ec59d5",
+   "bytes": 8145,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_tydiqa_lesser_s1_n5000.json.gz": {
+   "sha256": "8bda6084e9e194db7fa18a6e7a35d5b274be4ad6f86c92e5585f078e8fcf79e9",
+   "bytes": 8159,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_tydiqa_randA_s0_n5000.json.gz": {
+   "sha256": "a770288c2bdc6ea357110476fdfb217bbc9ab08569bcc01de658bad83be87e28",
+   "bytes": 8084,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/llama3_tydiqa_randB_s0_n5000.json.gz": {
+   "sha256": "b304c6f01905d05ebbd4e892bbcae0f2f5caba493acc9f3f3212b2053d03367b",
+   "bytes": 8055,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_bbh_less_s0_n5000.json.gz": {
+   "sha256": "a3d06b27b240a0d64d1fd9b3e389907dddc1bf0551ff634d9b653e0c9d77d8ba",
+   "bytes": 54053,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_bbh_less_s1_n5000.json.gz": {
+   "sha256": "9383ae77ed69f356fd1ec79b028c87bd8aed05c1f3fb8c7232445727e17fb65d",
+   "bytes": 53972,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_bbh_lesser_s0_n5000.json.gz": {
+   "sha256": "60609fb8e22aad1ac280afdaa67dd0912eff2b02504ba7d6b24e667a02159cc0",
+   "bytes": 53983,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_bbh_lesser_s1_n5000.json.gz": {
+   "sha256": "ca8beff39b870f4747642a93d7bc93da52e44e16a759c6a96691fa0e7e80b5cd",
+   "bytes": 54026,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_bbh_randA_s0_n5000.json.gz": {
+   "sha256": "2d773b8f5ec7e8494e4a1ecfa0f3c935c197b78bc57affd1eb237534d75c75b1",
+   "bytes": 54052,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_bbh_randB_s0_n5000.json.gz": {
+   "sha256": "93a076f32ab9c87a876c5737b545c66122fc81231dc8f74378f4955a26cfae5a",
+   "bytes": 54066,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_codex_less_s0_n5000.json.gz": {
+   "sha256": "deec932bc54e981713f0db116487893029ec42fe8586de9a4f32d0fc4180cd38",
+   "bytes": 12973,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_codex_less_s1_n5000.json.gz": {
+   "sha256": "89e9333586185b74dd1252bafd00260b4369679873219ebdcf3cf022f6d8fe19",
+   "bytes": 12992,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_codex_lesser_s0_n5000.json.gz": {
+   "sha256": "c8dd4cb9fad31ca2a7e55e72fb8b6483d72e9277793008149a5b98515958012c",
+   "bytes": 13016,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_codex_lesser_s1_n5000.json.gz": {
+   "sha256": "c1aba54ab95083c5fa97f7c75dfe381e37ed39f4b62ee2f514573c0bc668f3e2",
+   "bytes": 12954,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_codex_randA_s0_n5000.json.gz": {
+   "sha256": "34d4708141d62c48971999c9022be276088e62ca287f0e38ddeed0b061024062",
+   "bytes": 12997,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_codex_randB_s0_n5000.json.gz": {
+   "sha256": "170fba7d6c60b7a6756dc88b993ea5a7c43781081831ddc9f1400efb9995cca2",
+   "bytes": 12962,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_gsm8k_less_s0_n5000.json.gz": {
+   "sha256": "f232724a37e924a9491c8e79cc50260fb80eaeadfee791645fc909b154433fa4",
+   "bytes": 7198,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_gsm8k_less_s1_n5000.json.gz": {
+   "sha256": "cad18e4ddde91b5e96db76d35f25adb09ab42b240b3179fdbc1e23cbcc08d57b",
+   "bytes": 7183,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_gsm8k_lesser_s0_n5000.json.gz": {
+   "sha256": "b73e2678be18cc1d1eac5783fbc5ee0107a849acd12a4511f4bce5d995815de7",
+   "bytes": 7176,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_gsm8k_lesser_s1_n5000.json.gz": {
+   "sha256": "546455cb6ed11835d414867f521e066a79e07fbe231ee1fadeaea9f4a897f82e",
+   "bytes": 7185,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_gsm8k_randA_s0_n5000.json.gz": {
+   "sha256": "a87bfeac47e64a3128980ca2886a7db486a577a0c983dde48df387f2233d8b41",
+   "bytes": 7199,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_gsm8k_randB_s0_n5000.json.gz": {
+   "sha256": "c41254bef45d8ac43994023e9538cf7f10e3ae64233b556584ef4a844a2cd62e",
+   "bytes": 7216,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_mmlu_pro_less_s0_n5000.json.gz": {
+   "sha256": "e87a9e8bb55561f3faf3303ac70afb4101312ce7aab24f66772e1c889f73c42b",
+   "bytes": 49771,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_mmlu_pro_less_s1_n5000.json.gz": {
+   "sha256": "13ccfec478444e105d3a1bfba7e9b69116d2be2adcb7e90e70b66c641cdf7417",
+   "bytes": 49909,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_mmlu_pro_lesser_s0_n5000.json.gz": {
+   "sha256": "d8194cfed66c48c948d28e0e6a195d4ef3d3b2861e21a5acf99b985f6046593b",
+   "bytes": 49810,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_mmlu_pro_lesser_s1_n5000.json.gz": {
+   "sha256": "69e6542f4f146b712c22ad4b379f29dba2e01ffbe2babad0f44b39b1da6c4c9d",
+   "bytes": 49859,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_mmlu_pro_randA_s0_n5000.json.gz": {
+   "sha256": "f6e04c62f5ee552356059f041330415958e6aae6b83debab51c6cf9c39342a31",
+   "bytes": 49752,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_mmlu_pro_randB_s0_n5000.json.gz": {
+   "sha256": "56af32ac1c936544a11539294b3e4ff87ee6ec9410aeb9eec272f49cb6ea518e",
+   "bytes": 49866,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_tydiqa_less_s0_n5000.json.gz": {
+   "sha256": "ba6cf8738d9d7e0c967083a0cd6019eb42f89063db00fdb97487200a559dd5e3",
+   "bytes": 8147,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_tydiqa_less_s1_n5000.json.gz": {
+   "sha256": "1cfb3737916d504022e577dda436945a2be3dcf813adb4a6610020693f991df4",
+   "bytes": 8104,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_tydiqa_lesser_s0_n5000.json.gz": {
+   "sha256": "cfef7319d00a3a44004a9de02dde3770156c1671ccf3ac1d75a3e65883409f3f",
+   "bytes": 8102,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_tydiqa_lesser_s1_n5000.json.gz": {
+   "sha256": "cd1e920078a9a772efb83040fd58fcb0bb6d92ac3224710d00822e3dcccfde25",
+   "bytes": 8098,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_tydiqa_randA_s0_n5000.json.gz": {
+   "sha256": "65bda2a5ba02d4b0284cac62a23915b96b85162107a8f317f261228b4355d85c",
+   "bytes": 8081,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/olmo3_tydiqa_randB_s0_n5000.json.gz": {
+   "sha256": "a702e4a8e5c56c3b57b7cf6d29d7083912cc075810930c9ac1636c038abf5f94",
+   "bytes": 8081,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_bbh_less_s0_n5000.json.gz": {
+   "sha256": "e8e7d06d5c988e499c747c619d1a8102298a6e3c5fb3fe7978c950387884df2c",
+   "bytes": 54302,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_bbh_less_s1_n5000.json.gz": {
+   "sha256": "42d6831391be45b2f08ee481fce196a7654e05a133397f4731dad74d7f1ada61",
+   "bytes": 54237,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_bbh_lesser_s0_n5000.json.gz": {
+   "sha256": "33b51f339caf4dad4ad62f1be19a12858e0af8dec9a955c686658c9aa3867a77",
+   "bytes": 54354,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_bbh_lesser_s1_n5000.json.gz": {
+   "sha256": "d44c06bb732c99fbc25351c0aadd8530d5a5ca6766adc3957756dec27b337c11",
+   "bytes": 54383,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_bbh_randA_s0_n5000.json.gz": {
+   "sha256": "6f5b2665890be56380fa1117e9d5de84c69e2890f2d62d3016561ddf15edc7a5",
+   "bytes": 54433,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_bbh_randB_s0_n5000.json.gz": {
+   "sha256": "145b5a41c944c505cd15828aa5627993cde3e68a3ef52aa6a5788f4d0c9f5ae1",
+   "bytes": 54221,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_codex_less_s0_n5000.json.gz": {
+   "sha256": "82c8c339e0877103a986d51d5f83d25ca2b4afb7cb22a65508ba6f84a730fe0b",
+   "bytes": 13061,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_codex_less_s1_n5000.json.gz": {
+   "sha256": "f24e969006a2227ea4c2ffeb485e4204673e373d110d936176aa1ecec682d194",
+   "bytes": 13044,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_codex_lesser_s0_n5000.json.gz": {
+   "sha256": "f995fa1d1df19a06fdc05f71a7c54cf8ffb70afad4f1e2a9a1449ed0c8c5fdc0",
+   "bytes": 13050,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_codex_lesser_s1_n5000.json.gz": {
+   "sha256": "6962d0408544dfe85c661ca9cc2597e23e02ce3b929f4871ef7e738aab76d03e",
+   "bytes": 13053,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_codex_randA_s0_n5000.json.gz": {
+   "sha256": "9b1fecc17f158ed95c2deb37b712cffa533b4483980204c21e93e6bb206fe27c",
+   "bytes": 13097,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_codex_randB_s0_n5000.json.gz": {
+   "sha256": "4601e49bff7551a2178c48899975852f92639341f5aa929c504b5c5e09ce304b",
+   "bytes": 13045,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_gsm8k_less_s0_n5000.json.gz": {
+   "sha256": "77399a27d224ba65db0b88030708052f7f0b7964ef0a1e178534cfde3525599c",
+   "bytes": 7255,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_gsm8k_less_s1_n5000.json.gz": {
+   "sha256": "f7cb1ec40133295bff5fafbb9b55de0e5ded57d8cfb2b917cfc3b1b1b79b42f8",
+   "bytes": 7258,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_gsm8k_lesser_s0_n5000.json.gz": {
+   "sha256": "74bf76de1ec5fbe898ecf522e920311e2b2e9d829e1557818d45c3d1300fd536",
+   "bytes": 7254,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_gsm8k_lesser_s1_n5000.json.gz": {
+   "sha256": "ee7155ef4b1b1b51888eb73444a45e85b221c55fd26609b2bf25b12e7ba65707",
+   "bytes": 7231,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_gsm8k_randA_s0_n5000.json.gz": {
+   "sha256": "b3a286779d8245b6ab2479b23c1d78681e804d6bb0f4df4a431a761f34bcfefe",
+   "bytes": 7232,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_gsm8k_randB_s0_n5000.json.gz": {
+   "sha256": "cfb99c72d8cef6b3baa072bab065dd4c42115a2a728517fcd39d07aa835c49b5",
+   "bytes": 7216,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_mmlu_pro_less_s0_n5000.json.gz": {
+   "sha256": "91cad6ee0bf373afb565b564f3c4b292b8c8d780bda30d5539b29c194cded2ee",
+   "bytes": 50091,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_mmlu_pro_less_s1_n5000.json.gz": {
+   "sha256": "c4c02e5bdc31cdbf6dd3ca2ef3377a07467f672dfa61eb4167d57ada9fefed96",
+   "bytes": 50132,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_mmlu_pro_lesser_s0_n5000.json.gz": {
+   "sha256": "f571da3b9a48f83ff5bf1b56e15601873bc78ddb6586075f4e2073860edb9fdd",
+   "bytes": 50063,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_mmlu_pro_lesser_s1_n5000.json.gz": {
+   "sha256": "4e6f04ffb8c3dd2aa8ff795b512681d234d3b9f0a6c44e1a74f8fe7c7cd82a5c",
+   "bytes": 50055,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_mmlu_pro_randA_s0_n5000.json.gz": {
+   "sha256": "b061cfc619062e8b998f61f89bffa0feec0aa29df2715cc3ee6b010be2de2a20",
+   "bytes": 49948,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_mmlu_pro_randB_s0_n5000.json.gz": {
+   "sha256": "3e27e0f8dd91cfaef345a6f8fd01cefceb3110bbca0f51ac2d1504d793625586",
+   "bytes": 49991,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_tydiqa_less_s0_n5000.json.gz": {
+   "sha256": "e7c61de039dd2e799b39effc00269983f00899747db75fcfeec37e219005571f",
+   "bytes": 8125,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_tydiqa_less_s1_n5000.json.gz": {
+   "sha256": "f8f1adcba0e7e22b4c7c3820023f9b373d7f6f2e83232999d4578c80a4106474",
+   "bytes": 8105,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_tydiqa_lesser_s0_n5000.json.gz": {
+   "sha256": "63904cb02d8db5c9cae5f166f6faca09e477352f8bb2210083c9f070ff5437a4",
+   "bytes": 8129,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_tydiqa_lesser_s1_n5000.json.gz": {
+   "sha256": "6e0639302f0dc77513b7333998cf98f2fc6428f2b1a494d98756128310af9a21",
+   "bytes": 8108,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_tydiqa_randA_s0_n5000.json.gz": {
+   "sha256": "168fd99c6553843f1157f10e90c8730f61b1d1de275d19db93ffbc3d9e296d02",
+   "bytes": 8104,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  },
+  "trajectories/loss/qwen_tydiqa_randB_s0_n5000.json.gz": {
+   "sha256": "1d088b14490633ef4d82ddcf85cb1c8a907fa1841d1815be108d4847bc811f67",
+   "bytes": 8117,
+   "source": "gzipped loss_trajectory.json of the 120 trajectory runs (analysis/trajectories.py pack-loss); index.json has their sha256"
+  }
+ },
+ "total_bytes": 39173754,
+ "external_inputs": {
+  "data/sft/selections/llama-2-7b/less/bbh_k5000.json": {
+   "sha256": "98cb5c3ce343fa3dda05a3b67202563f9198521f10fe5614a3cd8a51bc8ea353",
+   "bytes": 37272
+  },
+  "data/sft/selections/llama-2-7b/less/codex_k5000.json": {
+   "sha256": "d3760d90afc3950cc88de788b75eed2551937198e8cef6ff79894343ffab2a77",
+   "bytes": 37206
+  },
+  "data/sft/selections/llama-2-7b/less/gsm8k_k5000.json": {
+   "sha256": "512085e444568618ba347806bb783f55d168dfabc1934d4627133da504ef8461",
+   "bytes": 37212
+  },
+  "data/sft/selections/llama-2-7b/less/mmlu_pro_k5000.json": {
+   "sha256": "17c9d7c4db49f6b0b7e45bda6366346475debccd0b8c440657ad4cd9878b6492",
+   "bytes": 37282
+  },
+  "data/sft/selections/llama-2-7b/less/tydiqa_k5000.json": {
+   "sha256": "a0056692c338bc155fa4f8fe9b388d48a5cdecdff265280a0ac9a3dc4507fea8",
+   "bytes": 37155
+  },
+  "data/sft/selections/llama-2-7b/lesser/bbh_k5000.json": {
+   "sha256": "a9466b5139e9b553c40ce5e6fcfaffbf7921dd9ac70fae73fd74e69ffe9cab48",
+   "bytes": 37234
+  },
+  "data/sft/selections/llama-2-7b/lesser/codex_k5000.json": {
+   "sha256": "69ee42f1bdaa92cb0de53a6e9179357aa91b5bd6fac38cfca2c82cf060bf713d",
+   "bytes": 37263
+  },
+  "data/sft/selections/llama-2-7b/lesser/gsm8k_k5000.json": {
+   "sha256": "59e8f696cc114a70d2d122e72cf9405ca471f593b11595bfcec6cf74bc219d39",
+   "bytes": 37168
+  },
+  "data/sft/selections/llama-2-7b/lesser/mmlu_pro_k5000.json": {
+   "sha256": "683cc4d9080d6ae7d9a955c000e9628d4e740edcb6cbfd91fa44cc66d93961bf",
+   "bytes": 37182
+  },
+  "data/sft/selections/llama-2-7b/lesser/tydiqa_k5000.json": {
+   "sha256": "3a73aeac3c96d0960e7d9e06b27ae025ab6e2e2f95a65fd09816e9c80707e096",
+   "bytes": 37193
+  },
+  "data/sft/selections/llama-2-7b/random/mmlu_pro_k5000.json": {
+   "sha256": "8b51a3e19badfe1bfc7b7d15a3c4c49e3d9afdf5fb061e2d50092889c801ea84",
+   "bytes": 37225
+  },
+  "data/sft/selections/llama-2-7b/rds/bbh_k5000.json": {
+   "sha256": "1cc1e320edcabbe0962fa0953af6b19115539e7ab955952864318d62eead6043",
+   "bytes": 36923
+  },
+  "data/sft/selections/llama-2-7b/rds/codex_k5000.json": {
+   "sha256": "c413a8a42b3a32c64e15034d001e4690b94e02d5f1b42561dea65245328e74e6",
+   "bytes": 37133
+  },
+  "data/sft/selections/llama-2-7b/rds/gsm8k_k5000.json": {
+   "sha256": "c215e549f89e452a33dfc4b56b586e5d273f48550057659aaece5876ce307604",
+   "bytes": 37052
+  },
+  "data/sft/selections/llama-2-7b/rds/mmlu_pro_k5000.json": {
+   "sha256": "2ed7e20215c5efac766e52b61031a096c59964c3ae66e7306ae58e1bc55c0602",
+   "bytes": 36959
+  },
+  "data/sft/selections/llama-2-7b/rds/tydiqa_k5000.json": {
+   "sha256": "c5eba6adf65c582a4a1c323c8dae53be8e138944182ff95651ac4312c8da7e9d",
+   "bytes": 37135
+  },
+  "data/sft/selections/llama-3.2-3b/less/bbh_k5000.json": {
+   "sha256": "e481be25bec02400b1474ec4335179813457f4236c5f230fc2c0c52ce135490b",
+   "bytes": 37126
+  },
+  "data/sft/selections/llama-3.2-3b/less/codex_k5000.json": {
+   "sha256": "555aa4cb45e0d6f9c15a1de533be68bd8694b3d3de8bed33eb582afffc6b7d21",
+   "bytes": 37165
+  },
+  "data/sft/selections/llama-3.2-3b/less/gsm8k_k5000.json": {
+   "sha256": "22bec16cd5401cd585052beff14abad4cfafb41f84efd6b123da2440f3cb67e4",
+   "bytes": 37149
+  },
+  "data/sft/selections/llama-3.2-3b/less/mmlu_pro_k5000.json": {
+   "sha256": "96fafbb9f075dbcef6b19ffc07540da84803b25a74881faa5a45994061db2451",
+   "bytes": 37175
+  },
+  "data/sft/selections/llama-3.2-3b/less/tydiqa_k5000.json": {
+   "sha256": "89ef4a749c1a6d791928c3eb07197b2762d3b98af9cf5d8ebb6ea31cc8194773",
+   "bytes": 37198
+  },
+  "data/sft/selections/llama-3.2-3b/lesser/bbh_k5000.json": {
+   "sha256": "6d381c07614ed96f6c45a836751ad61beb18b5cf84898cba6d37c747d7308d65",
+   "bytes": 37226
+  },
+  "data/sft/selections/llama-3.2-3b/lesser/codex_k5000.json": {
+   "sha256": "7f06e09212648b23ee55ef2c78c62a726e41773ba1b1e9fc82384c2a1415d553",
+   "bytes": 37211
+  },
+  "data/sft/selections/llama-3.2-3b/lesser/gsm8k_k5000.json": {
+   "sha256": "8fe5b99b416c1a209bbefc9275ac39c9fba3d4ad8137abf0c5af0886efb54b18",
+   "bytes": 37186
+  },
+  "data/sft/selections/llama-3.2-3b/lesser/mmlu_pro_k5000.json": {
+   "sha256": "444948e4ca8cdf68f5c88b9ac0859d7d04529de7f85c783a115336742ad78297",
+   "bytes": 37181
+  },
+  "data/sft/selections/llama-3.2-3b/lesser/tydiqa_k5000.json": {
+   "sha256": "bb32a9684b0d2e681d81ab26890d180a8ee3b7813f719e1fd563666b9079f1c2",
+   "bytes": 37213
+  },
+  "data/sft/selections/llama-3.2-3b/random/mmlu_pro_k5000.json": {
+   "sha256": "fbaf7232675df55f63ed98666de71ecda178471445cbe102616b95218b239e26",
+   "bytes": 37212
+  },
+  "data/sft/selections/llama-3.2-3b/rds/bbh_k5000.json": {
+   "sha256": "3ccbeeb2566b0c69f016aa9b5d2346f73edc38c60d275cdb85509526dbd741dd",
+   "bytes": 36663
+  },
+  "data/sft/selections/llama-3.2-3b/rds/codex_k5000.json": {
+   "sha256": "29f2fd33ca6eb7a2b4950ea0992967409004a9533b473b7c351ded5ead8bcfb1",
+   "bytes": 36985
+  },
+  "data/sft/selections/llama-3.2-3b/rds/gsm8k_k5000.json": {
+   "sha256": "7e806e9440ef63a092d9aa7df4aaf0ea6ab2135f8a831cf21b8c2b358be94a13",
+   "bytes": 36956
+  },
+  "data/sft/selections/llama-3.2-3b/rds/mmlu_pro_k5000.json": {
+   "sha256": "831964f5a34b419fbed9ce95873b0981508cb9ba8f989bfabe6f1c36508e9e5b",
+   "bytes": 36851
+  },
+  "data/sft/selections/llama-3.2-3b/rds/tydiqa_k5000.json": {
+   "sha256": "ca3c47903d50f4c643cbc1b620f329f05e86d1366192fe1f04f3a8ece36ffafe",
+   "bytes": 37198
+  },
+  "data/sft/selections/olmo3-7b/less/bbh_k5000.json": {
+   "sha256": "0ac080ae4b979fa5e94fcfd6cae01e7d7b0f9126fc21b27bb33fc053ee34dda2",
+   "bytes": 37242
+  },
+  "data/sft/selections/olmo3-7b/less/codex_k5000.json": {
+   "sha256": "fc3d937be4956b7cd74bfd0ff5233388c1830eddd323e989a637215f587dbd23",
+   "bytes": 37244
+  },
+  "data/sft/selections/olmo3-7b/less/gsm8k_k5000.json": {
+   "sha256": "956e2d299af25fcda00eee16133afc534e0fdc11bdc7ce8ada8ce56d1c363d59",
+   "bytes": 37280
+  },
+  "data/sft/selections/olmo3-7b/less/mmlu_pro_k5000.json": {
+   "sha256": "d31496d75ffda18153593660b07112b7049b85a3a43c3fe99dafa7d1abee5dc1",
+   "bytes": 37137
+  },
+  "data/sft/selections/olmo3-7b/less/tydiqa_k5000.json": {
+   "sha256": "5ef145a40bea40e1da6ab9bb4cf76d045ddcc29dc8feeda5f02c3040ec1e34d1",
+   "bytes": 37182
+  },
+  "data/sft/selections/olmo3-7b/lesser/bbh_k5000.json": {
+   "sha256": "6dc9ead50c3c2e3e758ec9b0a66336e7a1c7914ca5833542526462e16058cd61",
+   "bytes": 37226
+  },
+  "data/sft/selections/olmo3-7b/lesser/codex_k5000.json": {
+   "sha256": "f025032fe317d101b969f6bb8b7450bc68cdad42ba375972827e78e3e6c918c8",
+   "bytes": 37224
+  },
+  "data/sft/selections/olmo3-7b/lesser/gsm8k_k5000.json": {
+   "sha256": "0452c2bbcd0b1d810bcb9cc740c303e9ab81e95c51a030d012d707cacaba951f",
+   "bytes": 37192
+  },
+  "data/sft/selections/olmo3-7b/lesser/mmlu_pro_k5000.json": {
+   "sha256": "1501091631d7200fe8290e0c7c40ac10d6f3de0fde9b9cc5bae7ecd076a7c9f7",
+   "bytes": 37164
+  },
+  "data/sft/selections/olmo3-7b/lesser/tydiqa_k5000.json": {
+   "sha256": "964b94c47212ec1d950cfdca050972e89c707efb651fd8d345be4f7a782c687e",
+   "bytes": 37214
+  },
+  "data/sft/selections/olmo3-7b/random/mmlu_pro_k5000.json": {
+   "sha256": "fbaf7232675df55f63ed98666de71ecda178471445cbe102616b95218b239e26",
+   "bytes": 37212
+  },
+  "data/sft/selections/olmo3-7b/rds/bbh_k5000.json": {
+   "sha256": "6f4032f34bbfba5b479881b1d8e08978d25ec8f5146b9a2a3add0ff37011baff",
+   "bytes": 36988
+  },
+  "data/sft/selections/olmo3-7b/rds/codex_k5000.json": {
+   "sha256": "8e35eef5abd3134c7604761526f5d5b075c709179bb49da04088380bffb27a68",
+   "bytes": 37167
+  },
+  "data/sft/selections/olmo3-7b/rds/gsm8k_k5000.json": {
+   "sha256": "87b2b9a645b0bdda6ad27211276f51df64d36e7e5dccbf2af2daba585f0a62b6",
+   "bytes": 37056
+  },
+  "data/sft/selections/olmo3-7b/rds/mmlu_pro_k5000.json": {
+   "sha256": "27dba98d2471df574cf3b4c5cf5c201a62b419391f3cef4fe2892e4e18b72d7c",
+   "bytes": 37008
+  },
+  "data/sft/selections/olmo3-7b/rds/tydiqa_k5000.json": {
+   "sha256": "178c55899ab186d11aacc3aa9653a292ebf2e8a6c3f8771beffc7e589e1c7c1b",
+   "bytes": 37131
+  },
+  "data/sft/selections/qwen3-4b-base/less/bbh_k5000.json": {
+   "sha256": "a48c6947d1141e94800f32f70d78ea569433bd86ea71fde54aba8a2cc87e9d8a",
+   "bytes": 37233
+  },
+  "data/sft/selections/qwen3-4b-base/less/codex_k5000.json": {
+   "sha256": "daa4cd4e9ade3835f7f9ef058c75ce4f84a14cdc9ede83b4b631dfffb898271c",
+   "bytes": 37211
+  },
+  "data/sft/selections/qwen3-4b-base/less/gsm8k_k5000.json": {
+   "sha256": "c39d9f3776780291aa2e4f4e59397f3d85df3cb4f28e45ac30f1ffa252aa22c7",
+   "bytes": 37214
+  },
+  "data/sft/selections/qwen3-4b-base/less/mmlu_pro_k5000.json": {
+   "sha256": "008ffd315364c752b6aca0fae03981a4b12e1e0b6d7a3a7453633c99a6f47879",
+   "bytes": 37135
+  },
+  "data/sft/selections/qwen3-4b-base/less/tydiqa_k5000.json": {
+   "sha256": "26e07c1e62cf5fea40a0f1302084ac7e10aa56a926d617edbc2100e67e62f450",
+   "bytes": 37109
+  },
+  "data/sft/selections/qwen3-4b-base/lesser/bbh_k5000.json": {
+   "sha256": "d2d3d5632c6cbe37b5c2b90f43742ce917dd8fb19bab1d8dad82c35e042d3a45",
+   "bytes": 37099
+  },
+  "data/sft/selections/qwen3-4b-base/lesser/codex_k5000.json": {
+   "sha256": "af6db8f617dfcb787e367013506628dfcc5d6edfe5b6ae5f08436975fafefee8",
+   "bytes": 37190
+  },
+  "data/sft/selections/qwen3-4b-base/lesser/gsm8k_k5000.json": {
+   "sha256": "894e94f802bb541efc319442d3a3014dda229a6602f3c34ea5cd0623be832e32",
+   "bytes": 37128
+  },
+  "data/sft/selections/qwen3-4b-base/lesser/mmlu_pro_k5000.json": {
+   "sha256": "7934110858dc2d6572b1a398cf44e1dbd86842e2bc5b7ed761caf5a48b48efa5",
+   "bytes": 37257
+  },
+  "data/sft/selections/qwen3-4b-base/lesser/tydiqa_k5000.json": {
+   "sha256": "884d113e1b0b70d2aaab1f32a020092a8ef806bab9ba55d7acd1c8331567a932",
+   "bytes": 37176
+  },
+  "data/sft/selections/qwen3-4b-base/random/mmlu_pro_k5000.json": {
+   "sha256": "fbaf7232675df55f63ed98666de71ecda178471445cbe102616b95218b239e26",
+   "bytes": 37212
+  },
+  "data/sft/selections/qwen3-4b-base/rds/bbh_k5000.json": {
+   "sha256": "3bdbcc89779980eab6ee6739bb29cf9d4da43964a96d7883747564bb030150f0",
+   "bytes": 36460
+  },
+  "data/sft/selections/qwen3-4b-base/rds/codex_k5000.json": {
+   "sha256": "99813d5ae0e8af272cd4a36c8c91bb9a93a5360285ad57a034f459aad7885a28",
+   "bytes": 36984
+  },
+  "data/sft/selections/qwen3-4b-base/rds/gsm8k_k5000.json": {
+   "sha256": "4a6a64d7c17f5dacb8ad55a3df0acffc760a77b8f0a5db4a481c947999268ac7",
+   "bytes": 37081
+  },
+  "data/sft/selections/qwen3-4b-base/rds/mmlu_pro_k5000.json": {
+   "sha256": "7587118329cc380bcce7820f1bb2579b57ce849a1616b35a708e9f685aa962f3",
+   "bytes": 36677
+  },
+  "data/sft/selections/qwen3-4b-base/rds/tydiqa_k5000.json": {
+   "sha256": "631afd5808fa0e50d0c450503024238b0f70e129401733453d1a61697d6b5dbb",
+   "bytes": 37121
+  }
+ },
+ "external_note": "selection lists read from the SFT component (analysis/selections.py)"
+}

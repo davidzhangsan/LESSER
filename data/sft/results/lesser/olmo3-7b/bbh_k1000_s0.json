@@ -1,0 +1,12 @@
+{
+  "model": "olmo3-7b",
+  "method": "baseprod",
+  "task": "bbh",
+  "budget": 1000,
+  "seed": 0,
+  "metric_name": "average_exact_match",
+  "metric_value": 64.62958295757143,
+  "n_selected": 1000,
+  "base_model": "allenai/Olmo-3-1025-7B",
+  "env": "cluster"
+}

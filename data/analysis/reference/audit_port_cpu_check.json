@@ -1,0 +1,30 @@
+{
+ "n_compared": 3,
+ "pool_index_equal": true,
+ "sequence_length_equal": true,
+ "response_tokens_equal": true,
+ "max_rel_diff": {
+  "s_head": 0.0003608543275849833,
+  "norm_head": 1.3543582473283152e-05,
+  "full_dot": 0.0007399482777831736,
+  "full_norm": 0.0002139863005036241,
+  "block_norms": 0.0002479116683559151,
+  "block_dots": 0.008481730386929665
+ },
+ "computed": {
+  "file": "audit_cpu_llama3_gsm8k_n3.json",
+  "settings": {
+   "task": "gsm8k",
+   "audit_seed": 7,
+   "audit_skip": 0,
+   "audit_n": 3
+  },
+  "provenance": {
+   "torch": "2.5.1+cu121",
+   "transformers": "4.56.2",
+   "device": "cpu",
+   "storage": "cpu",
+   "dtype": "float32"
+  }
+ }
+}

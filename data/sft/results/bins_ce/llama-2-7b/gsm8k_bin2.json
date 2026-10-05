@@ -1,0 +1,1 @@
+{"task": "gsm8k", "bin": 2, "ce_loss": 0.9600974768400192, "model": "meta-llama/Llama-2-7b-hf", "convention": "mean over dev queries of construct_test_sample CE"}

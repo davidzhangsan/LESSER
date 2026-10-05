@@ -1,0 +1,17 @@
+{
+ "figure": "query loss, log step axis",
+ "sources": {
+  "llama2": {
+   "sha256": "d496f4bd85d962e3b0f4a42126b27142984039ed4741f31cb0bb8395c1c5fd90"
+  },
+  "llama3": {
+   "sha256": "6b2de4eddfa429fd6d64816f787d164e122d3def372db49eb71a2f174c2b597a"
+  },
+  "olmo3": {
+   "sha256": "ca2f05487e8ab50dbb8c9ba44f7a1811f82f9bdfbbd7036f8a9f69fb499549f3"
+  },
+  "qwen": {
+   "sha256": "781f136d6fdeb7e52b76d4f2d1040c0395cfbf22cc4e6553f420ed928492c533"
+  }
+ }
+}

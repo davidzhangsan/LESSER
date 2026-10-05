@@ -1,0 +1,13 @@
+START 2026-09-25T10:30:55+00:00 host=<host> gpu=NVIDIA A100 80GB PCIe, 81920 MiB
+4c61256d652a897a337b3e8b895ae92a679ee52a04f464b1bd22b3df94ee4061  <RESEARCH_REPO>/scripts/extract_llama2_base_2026_06_16.py
+a5d603bac1cbda7f5d9b0041e425cc2ca3f932a47b35b33c1ff3f2cef95b0c13  <RESEARCH_REPO>/results/residual_mechanism_2026-06-09/extract_residual_features.py
+8823842a30201ff444f0c636bb0b8dc94799ac4ab9761e8d1a407ba2efed3ddb  <RUNS>/2026-09-21_llama2_timing/less_actual/compute_less_embeds_HEAD.py
+3fe5d863f7953907618c73199429cb9d385b73e595fac874018bc01fd2e8b610  <RUNS>/2026-09-21_llama2_timing/less_actual_pi16/compute_less_embeds_HEAD_pi16.py
+fast_jl OK; torch 2.5.1+cu121
+=== LESSER prefix 0..10000 start 2026-09-25T10:30:57+00:00
+=== LESSER rc=0 wall_seconds=576 2026-09-25T10:40:33+00:00; last rate line: rate=17.80/s
+=== LESS released code pi8 prefix 0..10000 start 2026-09-25T10:40:33+00:00
+=== LESS pi8 rc=0 wall_seconds=2563 2026-09-25T11:23:16+00:00; projector: Using CudaProjector
+=== LESS released code pi16 prefix 0..10000 start 2026-09-25T11:23:17+00:00
+=== LESS pi16 rc=0 wall_seconds=2204 2026-09-25T12:00:01+00:00; projector: Using CudaProjector
+END 2026-09-25T12:00:02+00:00

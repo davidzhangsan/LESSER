@@ -1,0 +1,146 @@
+{
+ "description": "Per-teacher GRACE scores (lower is better) with full-gradient and LESSER features of the student; LESSER paper Table 12, row 3.",
+ "setting": "math_llama3b",
+ "task": "MATH",
+ "student": "meta-llama/Llama-3.2-3B",
+ "student_label": "Llama-3.2-3B",
+ "prompts": 512,
+ "responses_per_prompt": 4,
+ "prompt_subset": {
+  "file": "data/math_512.jsonl",
+  "script": "scripts/math_subset_512.py",
+  "sha256": "c6f76e78c782dc2da52ec61d4e0e68b8f511e4982c589e62df58cb89c9c20b1f"
+ },
+ "grace": {
+  "dim": 512,
+  "n_gen_per_prompt": 4,
+  "test_fraction": 0.1,
+  "n_splits": 10,
+  "smooth_coeff": 0.001,
+  "normalize_train": true,
+  "normalize_test": false
+ },
+ "score_decimals": null,
+ "source": {
+  "file": "math_llama3b_scores.json",
+  "location": "original score output of the paper run (not distributed)",
+  "sha256": "fb02a629608025da418032403e7b27a10ec8ade957f3a875e066e9725d9628b6",
+  "fields": {
+   "full": "settings.as_published.backends.full.scores",
+   "lesser": "settings.as_published.backends.prod.scores"
+  },
+  "note": "as_published = released GRACE defaults (normalize_train=True, normalize_test=False)"
+ },
+ "teachers": [
+  {
+   "short": "Qwen2.5-Math-1.5B-Instruct",
+   "hf_id": "Qwen/Qwen2.5-Math-1.5B-Instruct",
+   "full": 0.014934066303492626,
+   "lesser": 0.005259886335851695,
+   "generation": {
+    "responses_generated": 4,
+    "vllm": "0.11.0",
+    "vllm_extra_args": "--max_model_len 4096 --max_num_seqs 64"
+   }
+  },
+  {
+   "short": "Qwen2.5-1.5B-Instruct",
+   "hf_id": "Qwen/Qwen2.5-1.5B-Instruct",
+   "full": 0.01394944059463266,
+   "lesser": 0.004486063413862416,
+   "generation": {
+    "responses_generated": 4,
+    "vllm": "0.11.0",
+    "vllm_extra_args": "--max_model_len 4096 --max_num_seqs 64"
+   }
+  },
+  {
+   "short": "Qwen2.5-Math-7B-Instruct",
+   "hf_id": "Qwen/Qwen2.5-Math-7B-Instruct",
+   "full": 0.015003139728639309,
+   "lesser": 0.004904646278415442,
+   "generation": {
+    "responses_generated": 4,
+    "vllm": "0.11.0",
+    "vllm_extra_args": "--max_model_len 4096 --max_num_seqs 64"
+   }
+  },
+  {
+   "short": "Qwen2.5-3B-Instruct",
+   "hf_id": "Qwen/Qwen2.5-3B-Instruct",
+   "full": 0.012945357330930071,
+   "lesser": 0.004395175517223829,
+   "generation": {
+    "responses_generated": 4,
+    "vllm": "0.11.0",
+    "vllm_extra_args": "--max_model_len 4096 --max_num_seqs 64"
+   }
+  },
+  {
+   "short": "Llama-3.2-3B-Instruct",
+   "hf_id": "meta-llama/Llama-3.2-3B-Instruct",
+   "full": 0.022291147522061412,
+   "lesser": 0.00628139320294758,
+   "generation": {
+    "responses_generated": 4,
+    "vllm": "0.11.0",
+    "vllm_extra_args": "--max_model_len 4096 --max_num_seqs 64"
+   }
+  },
+  {
+   "short": "Qwen2.5-7B-Instruct",
+   "hf_id": "Qwen/Qwen2.5-7B-Instruct",
+   "full": 0.014586606303024862,
+   "lesser": 0.004763713628851897,
+   "generation": {
+    "responses_generated": 4,
+    "vllm": "0.11.0",
+    "vllm_extra_args": "--max_model_len 4096 --max_num_seqs 64"
+   }
+  },
+  {
+   "short": "Gemma-2-2b-it",
+   "hf_id": "google/gemma-2-2b-it",
+   "full": 0.04035193298433322,
+   "lesser": 0.010273409737163368,
+   "generation": {
+    "responses_generated": 4,
+    "vllm": "0.11.0",
+    "vllm_extra_args": "--max_model_len 4096 --max_num_seqs 64"
+   }
+  },
+  {
+   "short": "Llama-3.1-8B-Instruct",
+   "hf_id": "meta-llama/Llama-3.1-8B-Instruct",
+   "full": 0.018014052721766646,
+   "lesser": 0.0057934795160276605,
+   "generation": {
+    "responses_generated": 4,
+    "vllm": "0.11.0",
+    "vllm_extra_args": "--max_model_len 4096 --max_num_seqs 64"
+   }
+  },
+  {
+   "short": "OLMo-2-7B-Instruct",
+   "hf_id": "allenai/OLMo-2-1124-7B-Instruct",
+   "full": 0.014547246795902202,
+   "lesser": 0.004784985344115973,
+   "generation": {
+    "responses_generated": 4,
+    "vllm": "0.11.0",
+    "vllm_extra_args": "--max_model_len 4096 --max_num_seqs 64"
+   }
+  },
+  {
+   "short": "Gemma-2-9b-it",
+   "hf_id": "google/gemma-2-9b-it",
+   "full": 0.05761579787668136,
+   "lesser": 0.011285280555437514,
+   "generation": {
+    "responses_generated": 4,
+    "vllm": "0.11.0",
+    "vllm_extra_args": "--max_model_len 4096 --max_num_seqs 64"
+   }
+  }
+ ]
+}

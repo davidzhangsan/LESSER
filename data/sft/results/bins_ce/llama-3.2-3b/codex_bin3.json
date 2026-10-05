@@ -1,0 +1,1 @@
+{"task": "codex", "bin": 3, "ce_loss": 0.5758767817169428, "model": "meta-llama/Llama-3.2-3B", "n_dev": 16, "convention": "mean over dev queries of construct_test_sample CE"}

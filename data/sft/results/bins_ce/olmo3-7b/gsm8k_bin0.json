@@ -1,0 +1,1 @@
+{"task": "gsm8k", "bin": 0, "ce_loss": 0.9840257689356804, "n_dev": 8, "model": "allenai/Olmo-3-1025-7B", "convention": "mean over dev queries of construct_test_sample CE", "env": "cluster; vllm/vllm-openai:v0.11.0 image with transformers 4.57.1", "seconds": 624}

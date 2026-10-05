@@ -1,0 +1,12 @@
+{
+  "model": "llama",
+  "method": "baseprod",
+  "task": "gsm8k",
+  "budget": 1000,
+  "seed": 0,
+  "metric_name": "exact_match",
+  "metric_value": 31.311599696739954,
+  "n_selected": 1000,
+  "base_model": "meta-llama/Llama-3.2-3B",
+  "env": "workstation"
+}

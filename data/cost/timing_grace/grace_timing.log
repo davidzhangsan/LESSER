@@ -1,0 +1,32 @@
+START 2026-09-24T21:17:00+00:00 host=<host> gpus: NVIDIA A100 80GB PCIe, 81920 MiB; sha=6cb3ccb84eff914e
+`torch_dtype` is deprecated! Use `dtype` instead!
+prod: vocab_size=128256, hidden_dim=2048, grad_dim=262668288, tied=True
+prod: using the output-readout contribution; the shared parameter's total gradient also includes the input-embedding path
+[gsm8k_llama1b] meta-llama/Llama-3.2-1B grad_dim 1235814400 loaded in 23s
+[gsm8k_llama1b] check {'teacher': 'Qwen2.5-Math-1.5B-Instruct', 'row': 34, 'full': 0.9999998807907104, 'lesser': 1.0, 'lesser_as_run': 1.0}
+[gsm8k_llama1b] check {'teacher': 'Qwen2.5-Math-1.5B-Instruct', 'row': 96, 'full': 1.0, 'lesser': 1.0, 'lesser_as_run': 1.0}
+[gsm8k_llama1b] full          mean 0.815 s/row  median 0.800  peak 19.64 GiB  -> 6.49 h for 14 x 2048
+[gsm8k_llama1b] lesser        mean 0.207 s/row  median 0.199  peak 12.29 GiB  -> 1.65 h for 14 x 2048
+[gsm8k_llama1b] lesser_as_run mean 0.215 s/row  median 0.207  peak 12.29 GiB  -> 1.71 h for 14 x 2048
+[gsm8k_llama1b] ratio full/lesser 3.94 (as run 3.79); saved
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  2.72it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  5.28it/s]
+prod: vocab_size=100352, hidden_dim=2048, grad_dim=205520896, tied=False
+[gsm8k_olmo1b] allenai/OLMo-2-0425-1B grad_dim 1484916736 loaded in 51s
+[gsm8k_olmo1b] check {'teacher': 'Qwen2.5-Math-1.5B-Instruct', 'row': 44, 'full': 0.9999999403953552, 'lesser': 1.0, 'lesser_as_run': 1.0}
+[gsm8k_olmo1b] check {'teacher': 'Qwen2.5-Math-1.5B-Instruct', 'row': 45, 'full': 1.0, 'lesser': 1.0, 'lesser_as_run': 1.0}
+[gsm8k_olmo1b] full          mean 0.939 s/row  median 0.932  peak 17.04 GiB  -> 5.34 h for 10 x 2048
+[gsm8k_olmo1b] lesser        mean 0.174 s/row  median 0.168  peak 7.02 GiB  -> 0.99 h for 10 x 2048
+[gsm8k_olmo1b] lesser_as_run mean 0.178 s/row  median 0.172  peak 7.03 GiB  -> 1.01 h for 10 x 2048
+[gsm8k_olmo1b] ratio full/lesser 5.40 (as run 5.29); saved
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  1.72it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  2.95it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  2.67it/s]
+prod: vocab_size=128256, hidden_dim=3072, grad_dim=394002432, tied=True
+prod: using the output-readout contribution; the shared parameter's total gradient also includes the input-embedding path
+[math_llama3b] meta-llama/Llama-3.2-3B grad_dim 3212749824 loaded in 2s
+[math_llama3b] check {'teacher': 'Qwen2.5-Math-1.5B-Instruct', 'row': 56, 'full': 0.9999820590019226, 'lesser': 1.0, 'lesser_as_run': 1.0}
+[math_llama3b] check {'teacher': 'Qwen2.5-Math-1.5B-Instruct', 'row': 189, 'full': 0.9999765753746033, 'lesser': 0.9999999403953552, 'lesser_as_run': 0.9999999403953552}
+[math_llama3b] full          mean 2.581 s/row  median 2.361  peak 39.81 GiB  -> 14.68 h for 10 x 2048
+[math_llama3b] lesser        mean 0.543 s/row  median 0.477  peak 24.24 GiB  -> 3.09 h for 10 x 2048
+[math_llama3b] lesser_as_run mean 0.554 s/row  median 0.486  peak 24.24 GiB  -> 3.15 h for 10 x 2048
+[math_llama3b] ratio full/lesser 4.75 (as run 4.66); saved
+[done]
+END 2026-09-24T21:54:39+00:00 rc=0

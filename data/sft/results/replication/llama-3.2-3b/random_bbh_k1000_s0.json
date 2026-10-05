@@ -1,0 +1,9 @@
+{
+ "model": "meta-llama/Llama-3.2-3B",
+ "method": "random",
+ "task": "bbh",
+ "seed": 0,
+ "budget": 1000,
+ "score": 46.515030643361364,
+ "selection": "rng0"
+}

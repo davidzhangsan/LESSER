@@ -1,0 +1,12 @@
+{
+  "model": "qwen3-4b",
+  "method": "baseprod",
+  "task": "bbh",
+  "budget": 5000,
+  "seed": 2,
+  "metric_name": "average_exact_match",
+  "metric_value": 69.41847055695801,
+  "n_selected": 5000,
+  "base_model": "Qwen/Qwen3-4B-Base",
+  "env": "workstation"
+}

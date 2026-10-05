@@ -1,0 +1,96 @@
+{
+ "description": "Per-teacher GRACE scores (lower is better) with full-gradient and LESSER features of the student; LESSER paper Table 12, row 2. Teacher responses are the GSM8K generations of row 1 (same 4-of-16 subsample).",
+ "setting": "gsm8k_olmo1b",
+ "task": "GSM8K",
+ "student": "allenai/OLMo-2-0425-1B",
+ "student_label": "OLMo-2-1B",
+ "prompts": 512,
+ "responses_per_prompt": 4,
+ "prompt_subset": {
+  "file": "data/gsm8k_512.jsonl",
+  "script": "scripts/generate_subset.py",
+  "sha256": "84a5d1c713b1644f73b861b99d1eaa4fc8fec5d574e560bbda82c5ad8afa6109"
+ },
+ "grace": {
+  "dim": 512,
+  "n_gen_per_prompt": 4,
+  "test_fraction": 0.1,
+  "n_splits": 10,
+  "smooth_coeff": 0.001,
+  "normalize_train": true,
+  "normalize_test": false
+ },
+ "score_decimals": null,
+ "source": {
+  "file": "olmo_student_rescore.json",
+  "location": "original score output of the paper run (not distributed)",
+  "sha256": "0224b8ae91de5883f9cb1ef0838877fc9de7986cefac04ad1e683fb5f4a93fbb",
+  "fields": {
+   "full": "settings.as_published.scores.full",
+   "lesser": "settings.as_published.scores.prod"
+  },
+  "note": "as_published = released GRACE defaults (normalize_train=True, normalize_test=False)"
+ },
+ "teachers": [
+  {
+   "short": "Qwen2.5-Math-1.5B-Instruct",
+   "hf_id": "Qwen/Qwen2.5-Math-1.5B-Instruct",
+   "full": 0.011745356527076936,
+   "lesser": 0.017147486153913725
+  },
+  {
+   "short": "Qwen2.5-1.5B-Instruct",
+   "hf_id": "Qwen/Qwen2.5-1.5B-Instruct",
+   "full": 0.009583429112683775,
+   "lesser": 0.013113816668691219
+  },
+  {
+   "short": "Qwen2.5-Math-7B-Instruct",
+   "hf_id": "Qwen/Qwen2.5-Math-7B-Instruct",
+   "full": 0.0123527728496667,
+   "lesser": 0.01689578914934191
+  },
+  {
+   "short": "Qwen2.5-3B-Instruct",
+   "hf_id": "Qwen/Qwen2.5-3B-Instruct",
+   "full": 0.009324984816496212,
+   "lesser": 0.012824797238571042
+  },
+  {
+   "short": "Llama-3.2-3B-Instruct",
+   "hf_id": "meta-llama/Llama-3.2-3B-Instruct",
+   "full": 0.018058130538227225,
+   "lesser": 0.031651844386448955
+  },
+  {
+   "short": "Qwen2.5-7B-Instruct",
+   "hf_id": "Qwen/Qwen2.5-7B-Instruct",
+   "full": 0.011126270336405248,
+   "lesser": 0.015754292385088194
+  },
+  {
+   "short": "Gemma-2-2b-it",
+   "hf_id": "google/gemma-2-2b-it",
+   "full": 0.038315671799993824,
+   "lesser": 0.058587825229461585
+  },
+  {
+   "short": "Llama-3.1-8B-Instruct",
+   "hf_id": "meta-llama/Llama-3.1-8B-Instruct",
+   "full": 0.014569764128059626,
+   "lesser": 0.02539950082848521
+  },
+  {
+   "short": "OLMo-2-7B-Instruct",
+   "hf_id": "allenai/OLMo-2-1124-7B-Instruct",
+   "full": 0.012608878144911734,
+   "lesser": 0.017144639075948126
+  },
+  {
+   "short": "Gemma-2-9b-it",
+   "hf_id": "google/gemma-2-9b-it",
+   "full": 0.05909110845802666,
+   "lesser": 0.08188649890409241
+  }
+ ]
+}

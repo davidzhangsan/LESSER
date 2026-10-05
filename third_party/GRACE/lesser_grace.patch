@@ -1,0 +1,2381 @@
+diff --git a/.gitignore b/.gitignore
+index 8af14eb9ba5c4c24f45a18410ae64389378d1124..2eb8e2131330cb9864f4695082bfb9588228f85d 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -4,4 +4,9 @@ data/*_synthetic
+ evals
+ grace_data/
+ *.pyc
+-*.tar.gz
+\ No newline at end of file
++*.tar.gz
++.venv/
++.cuda124/
++logs_gen/
++results_grace/
++data/gsm8k_512.jsonl
+diff --git a/GRACE/gradient_computation.py b/GRACE/gradient_computation.py
+index aeaade58312c3e4832c330aa3337bd194403730e..7abcc013b2f3e513af88111010865027f6c835c4 100644
+--- a/GRACE/gradient_computation.py
++++ b/GRACE/gradient_computation.py
+@@ -1,8 +1,67 @@
++# Forward-GRACE ("prod") extension:
++# In addition to the original full-model projected gradients, this script can
++# compute a forward-only feature per example: the exact output-readout gradient
++# term G = (1/n_sup) * R^T H, where R stacks r_t = softmax(logits_t) - onehot(label_t)
++# and H stacks the post-final-norm last hidden states h_t over supervised
++# (label != -100) shifted positions. Because HF's causal-LM loss is mean-CE over
++# supervised tokens, G is exactly the derivative through the output-readout use
++# of lm_head.weight (verified by scripts/sanity_prod_gate.py). For an untied
++# lm_head this is the parameter-block gradient. If input/output weights are tied,
++# the total shared-parameter gradient also contains the input-embedding path.
++# Two projected variants are produced:
++#   PRIMARY  ("prod"):    flatten G (V*d dims, row-major over V) through a
++#                         CudaProjector(grad_dim=V*d, proj_dim=args.proj_dim,
++#                         seed=0, rademacher), divided by sqrt(V*d) — mirroring
++#                         the full-grad convention (divide by sqrt(grad_dim)).
++#   SECONDARY ("prod2s"): two-sided Rademacher sketch S_r: V->32, S_h: d->16
++#                         (both drawn from a CPU torch.Generator with seed 0,
++#                         S_r first then S_h), computed tokenwise as
++#                         (R S_r)^T (H S_h) / n_sup without materializing G,
++#                         flattened to 512 dims and divided by sqrt(V*d) for
++#                         convention-consistency with the primary variant.
++# Row order of all output pickles is identical (the per-example dataset order),
++# so GRACE_computation.py consumes any of them unchanged.
++#
++# GRACE paper compatibility:
++#   --row-scale grace_log_length multiplies every stored row (full, prod, and
++#   prod2s) by log(n_sup), where n_sup is the shifted supervised-token count used
++#   by HF's mean-CE denominator. The default 'none' preserves released behavior.
++#
++# Projection reproducibility (opt-in):
++#   trak's CudaProjector passes the GPU's streaming-multiprocessor count to
++#   fast_jl, and the Rademacher sign stream depends on it, so the same seed gives
++#   a different projection on a GPU with a different SM count. The stored LESSER
++#   paper features used num_sms=128 (the RTX 4090 value). --num-sms pins the
++#   value for every projector; the default (None) keeps the GPU's own count,
++#   which is the released behavior.
++#
++# Memory protocol (keeps fp32 computation exactly; fits 24GB GPUs):
++#   - 'both' mode runs TWO passes per example: (a) a torch.no_grad() forward for
++#     the prod features, with aggressive del + empty_cache, then (b) the ORIGINAL
++#     unmodified forward + loss.backward() full-gradient path. The fp32 (T, V)
++#     logits held for backward therefore never coexist with the prod workspace,
++#     capping peak memory at plain-GRACE level at the cost of one extra forward.
++#   - The prod softmax / R^T H accumulation is chunked over the time dimension
++#     (<= PROD_CHUNK_TOKENS supervised tokens per chunk) so a second full (T, V)
++#     fp32 tensor is never materialized alongside the model's own logits.
++#   - INTENTIONAL DIVERGENCE from the upstream path: for examples longer
++#     than FULL_GRAD_CKPT_THRESHOLD_TOKENS, the full-gradient pass enables HF
++#     gradient checkpointing (use_reentrant=False) for that example only. The
++#     plain fp32 forward+backward itself OOMs on 24GB at T>~42xx (a T=5668
++#     example allocates >23.6GiB in the FORWARD), and the
++#     GSM8K synthetic sets contain 1-8 such examples per teacher (max T=5668).
++#     Checkpointing replays the same fp32 ops during backward; the gradient is
++#     fp32-machine-precision equivalent, not bitwise (recompute may select
++#     different fp32 kernels): measured rel L2 diff ~5e-6 on the projected row,
++#     checked against tol 1e-4, 10x tighter than the 1e-3 tolerance of scripts/sanity_prod_gate.py
++#     (see check_ckpt_equivalence in scripts/memory_probe_both.py). Dropout must
++#     be zero for the temporary .train() flip to be a no-op; asserted below.
+ import argparse
+ import json
+ import os
+ import pickle
+ 
++import numpy as np
+ import torch
+ from datasets import Dataset, load_from_disk
+ from tqdm import tqdm
+@@ -12,6 +71,21 @@ from trak.projectors import CudaProjector, ProjectionType
+ 
+ projectorcls = CudaProjector
+ 
++IGNORE_INDEX = -100
++PROD2S_R_DIM = 32
++PROD2S_H_DIM = 16
++PROD_CHUNK_TOKENS = 256
++# Above this sequence length the full-grad pass uses gradient checkpointing
++# (see header). Chosen just above the memory probe's certified plain-path
++# point (seq_len 2049 -> peak 15.23 GiB on a 24GB RTX 4090, fp32 Llama-3.2-1B)
++# and below the shortest long outlier in the GSM8K synthetic sets (T=2814),
++# so every real example is either in the measured-safe plain regime or
++# checkpointed.
++FULL_GRAD_CKPT_THRESHOLD_TOKENS = 2560
++ROW_SCALE_NONE = "none"
++ROW_SCALE_GRACE_LOG_LENGTH = "grace_log_length"
++ROW_SCALE_CHOICES = (ROW_SCALE_NONE, ROW_SCALE_GRACE_LOG_LENGTH)
++
+ 
+ def parse_args():
+     parser = argparse.ArgumentParser(
+@@ -60,6 +134,46 @@ def parse_args():
+         choices=["auto", "float32", "float16", "bfloat16"],
+         help="Model loading dtype.",
+     )
++    parser.add_argument(
++        "--feature",
++        type=str,
++        default="full_grad",
++        choices=["full_grad", "prod", "both", "ablation"],
++        help=(
++            "Which per-example features to compute: 'full_grad' (original behavior), "
++            "'prod' (forward-only output-readout gradient term, skips loss.backward()), or "
++            "'both' (full grads AND prod from the same forward pass, same row order)."
++        ),
++    )
++    parser.add_argument(
++        "--prod-output-path",
++        type=str,
++        default=None,
++        help=(
++            "Path to save the projected prod features (required when --feature is "
++            "'prod' or 'both'). The two-sided variant is written next to it with "
++            "suffix '_prod2s'."
++        ),
++    )
++    parser.add_argument(
++        "--row-scale",
++        choices=ROW_SCALE_CHOICES,
++        default=ROW_SCALE_NONE,
++        help=(
++            "Optional per-example scale applied to every output feature row. "
++            "'grace_log_length' applies the GRACE paper's log(number of "
++            "supervised response tokens) factor; 'none' preserves released behavior."
++        ),
++    )
++    parser.add_argument(
++        "--num-sms",
++        type=int,
++        default=None,
++        help=(
++            "Pin the SM count passed to fast_jl by every projector (see header). "
++            "The LESSER paper features used 128; the default keeps the GPU's own count."
++        ),
++    )
+     return parser.parse_args()
+ 
+ 
+@@ -96,7 +210,20 @@ def get_grad_dim(model: torch.nn.Module, use_lora: bool) -> int:
+     return total
+ 
+ 
+-def build_model(student_pth: str, device: str, use_lora: bool, proj_dim: int, dtype: str):
++def build_model(
++    student_pth: str,
++    device: str,
++    use_lora: bool,
++    proj_dim: int,
++    dtype: str,
++    include_full_projector: bool = True,
++):
++    """Load the student and optionally construct the full-gradient JL projector.
++
++    Forward-only ``prod`` mode sets ``include_full_projector=False`` so it does
++    not initialize machinery that can only be consumed by the backward path.
++    The default keeps existing programmatic callers backward compatible.
++    """
+     torch_dtype = get_torch_dtype(dtype)
+ 
+     if torch_dtype == "auto":
+@@ -126,6 +253,9 @@ def build_model(student_pth: str, device: str, use_lora: bool, proj_dim: int, dt
+         )
+         model = get_peft_model(model, lora_config)
+ 
++    if not include_full_projector:
++        return model, None, None, None
++
+     grad_dim = get_grad_dim(model, use_lora)
+     if grad_dim == 0:
+         raise RuntimeError("Gradient dimension is zero. Check trainable parameters / LoRA setup.")
+@@ -150,6 +280,22 @@ def build_model(student_pth: str, device: str, use_lora: bool, proj_dim: int, dt
+     return model, gradientproj, normalize_factor, grad_dim
+ 
+ 
++def set_projector_num_sms(projector, num_sms):
++    """Pin the SM count that fast_jl receives from ``projector``.
++
++    ``None`` keeps the GPU's own count (released behavior). A non-positive value or a
++    projector without an SM count raises instead of silently projecting differently.
++    """
++    if num_sms is None:
++        return projector
++    if int(num_sms) <= 0:
++        raise ValueError(f"num_sms must be positive, got {num_sms}")
++    if not hasattr(projector, "num_sms"):
++        raise TypeError(f"{type(projector).__name__} has no num_sms attribute to pin")
++    projector.num_sms = int(num_sms)
++    return projector
++
++
+ def extract_gradients(model: torch.nn.Module, use_lora: bool) -> torch.Tensor:
+     gradients = []
+ 
+@@ -173,10 +319,425 @@ def extract_gradients(model: torch.nn.Module, use_lora: bool) -> torch.Tensor:
+     return torch.cat(gradients, dim=0)
+ 
+ 
++def compute_prod_features(logits: torch.Tensor, hidden: torch.Tensor, labels: torch.Tensor,
++                          s_r: torch.Tensor = None, s_h: torch.Tensor = None,
++                          ignore_index: int = IGNORE_INDEX,
++                          chunk_size: int = PROD_CHUNK_TOKENS):
++    """Return (G, g2s, n_sup) over supervised shifted positions, in fp32.
++
++    logits: (1, T, V) — pre-softmax lm_head outputs.
++    hidden: (1, T, d) — outputs.hidden_states[-1] (post-final-norm; feeds lm_head).
++    labels: (1, T)    — with ignore_index on non-supervised positions.
++
++    Shift convention matches HF causal-LM loss: logits[:, :-1] predict labels[:, 1:].
++    r_t = softmax(logits_t) - onehot(label_t); h_t is the hidden state at the SAME
++    position as logits_t.
++
++    G = (1/n_sup) * R^T H is EXACT, but accumulated in time chunks of at most
++    `chunk_size` supervised tokens so a full (T, V) fp32 softmax matrix is never
++    materialized alongside the model's own logits (avoids OOM on 24GB GPUs). Peak
++    extra memory: G (V, d) plus one (chunk_size, V) softmax block.
++
++    If s_r/s_h are given, also accumulates the two-sided sketch
++    g2s = (R S_r)^T (H S_h) / n_sup, shape (32, 16); otherwise g2s is None.
++    """
++    if logits.dim() != 3 or hidden.dim() != 3 or labels.dim() != 2:
++        raise ValueError(
++            f"Unexpected shapes: logits {tuple(logits.shape)}, hidden {tuple(hidden.shape)}, "
++            f"labels {tuple(labels.shape)}"
++        )
++    if logits.shape[0] != 1:
++        raise ValueError(f"prod feature assumes batch size 1, got {logits.shape[0]}")
++    if logits.shape[1] != hidden.shape[1] or logits.shape[1] != labels.shape[1]:
++        raise ValueError("logits/hidden/labels sequence lengths disagree")
++    if (s_r is None) != (s_h is None):
++        raise ValueError("s_r and s_h must be given together (or both omitted).")
++    if chunk_size <= 0:
++        raise ValueError(f"chunk_size must be positive, got {chunk_size}")
++
++    shift_logits = logits[0, :-1]
++    shift_hidden = hidden[0, :-1]
++    shift_labels = labels[0, 1:]
++
++    mask = shift_labels != ignore_index
++    sup_idx = mask.nonzero(as_tuple=True)[0]
++    n_sup = int(sup_idx.numel())
++    if n_sup == 0:
++        raise RuntimeError("Example has zero supervised positions (all labels == ignore_index).")
++
++    vocab_size = shift_logits.shape[-1]
++    hidden_dim = shift_hidden.shape[-1]
++    G = torch.zeros(vocab_size, hidden_dim, dtype=torch.float32, device=logits.device)
++    g2s = None
++    if s_r is not None:
++        g2s = torch.zeros(s_r.shape[1], s_h.shape[1], dtype=torch.float32, device=logits.device)
++
++    for start in range(0, n_sup, chunk_size):
++        idx = sup_idx[start:start + chunk_size]
++        r_c = torch.softmax(shift_logits[idx].float(), dim=-1)  # (c, V) fp32, c <= chunk_size
++        y_c = shift_labels[idx]
++        r_c[torch.arange(idx.numel(), device=r_c.device), y_c] -= 1.0
++        h_c = shift_hidden[idx].float()  # (c, d) fp32
++        G.addmm_(r_c.t(), h_c)
++        if g2s is not None:
++            g2s.addmm_((r_c @ s_r).t(), h_c @ s_h)
++        del r_c, h_c, y_c, idx
++
++    G /= n_sup
++    if g2s is not None:
++        g2s /= n_sup
++    return G, g2s, n_sup
++
++
++def compute_prod_G(logits: torch.Tensor, hidden: torch.Tensor, labels: torch.Tensor,
++                   ignore_index: int = IGNORE_INDEX) -> torch.Tensor:
++    """Exact output-readout gradient of mean CE: ``R.T @ H / n_sup``.
++
++    This equals the ``lm_head.weight`` parameter-block gradient when that weight
++    is untied. For tied weights, the total parameter gradient additionally has
++    the input-embedding contribution.
++    """
++    G, _, _ = compute_prod_features(logits, hidden, labels, ignore_index=ignore_index)
++    return G
++
++
++def supervised_token_count(labels: torch.Tensor, ignore_index: int = IGNORE_INDEX) -> int:
++    """Count labels used by HF causal-LM mean CE (labels shifted one token left)."""
++    if labels.dim() != 2 or labels.shape[0] != 1:
++        raise ValueError(f"Expected labels shape (1, T), got {tuple(labels.shape)}")
++    n_sup = int((labels[:, 1:] != ignore_index).sum().item())
++    if n_sup == 0:
++        raise RuntimeError("Example has zero supervised shifted positions.")
++    return n_sup
++
++
++def row_scale_from_n_sup(n_sup: int, mode: str = ROW_SCALE_NONE) -> float:
++    """Return a scalar row adapter without changing the feature direction."""
++    if n_sup <= 0:
++        raise ValueError(f"n_sup must be positive, got {n_sup}")
++    if mode == ROW_SCALE_NONE:
++        return 1.0
++    if mode == ROW_SCALE_GRACE_LOG_LENGTH:
++        if n_sup <= 1:
++            raise ValueError(
++                "grace_log_length would produce a zero row for n_sup <= 1"
++            )
++        return float(np.log(n_sup))
++    raise ValueError(f"Unsupported row-scale mode: {mode!r}")
++
++
++def build_two_sided_sketch(vocab_size: int, hidden_dim: int, device,
++                           r_dim: int = PROD2S_R_DIM, h_dim: int = PROD2S_H_DIM,
++                           seed: int = 0):
++    """Rademacher sketch matrices S_r (V, 32) and S_h (d, 16), drawn in that order
++    from a CPU torch.Generator seeded with `seed` (device-independent determinism)."""
++    gen = torch.Generator(device="cpu")
++    gen.manual_seed(seed)
++    s_r = torch.randint(0, 2, (vocab_size, r_dim), generator=gen, dtype=torch.int8)
++    s_h = torch.randint(0, 2, (hidden_dim, h_dim), generator=gen, dtype=torch.int8)
++    s_r = (s_r.float() * 2.0 - 1.0).to(device)
++    s_h = (s_h.float() * 2.0 - 1.0).to(device)
++    return s_r, s_h
++
++
++def build_prod_projector(model: torch.nn.Module, proj_dim: int, device):
++    """Projector + normalizer + two-sided sketch for the prod feature (shared by
++    main() and scripts/memory_probe_both.py so the probe exercises the real path)."""
++    lm_head = model.get_output_embeddings()
++    if lm_head is None or not hasattr(lm_head, "weight"):
++        raise RuntimeError("Model has no lm_head-style output embedding; prod feature unsupported.")
++    vocab_size, hidden_dim = lm_head.weight.shape
++    prod_grad_dim = int(vocab_size) * int(hidden_dim)
++    tied = bool(getattr(model.config, "tie_word_embeddings", False))
++    print(
++        f"prod: vocab_size={vocab_size}, hidden_dim={hidden_dim}, "
++        f"grad_dim={prod_grad_dim}, tied={tied}"
++    )
++    if tied:
++        print(
++            "prod: using the output-readout contribution; the shared parameter's "
++            "total gradient also includes the input-embedding path"
++        )
++    prod_projector = projectorcls(
++        proj_dim=int(proj_dim),
++        grad_dim=prod_grad_dim,
++        seed=0,
++        proj_type=ProjectionType.rademacher,
++        device=device,
++        dtype=torch.bfloat16,
++        block_size=4,
++        max_batch_size=8,
++    )
++    prod_normalize_factor = torch.sqrt(
++        torch.tensor(float(prod_grad_dim), dtype=torch.float32, device=device)
++    )
++    s_r, s_h = build_two_sided_sketch(vocab_size, hidden_dim, device=device, seed=0)
++    return prod_projector, prod_normalize_factor, s_r, s_h
++
++
++def compute_factor_means(logits, hidden, labels, ignore_index=IGNORE_INDEX,
++                         chunk_size=PROD_CHUNK_TOKENS):
++    """Chunked mean residual r_bar (V,) and mean hidden h_bar (d,) over
++    supervised shifted positions. Same shift/mask conventions as
++    compute_prod_features. Used by the ablation feature mode, which writes
++    h-only, residual-only, and pooled-factor control features (no paper result
++    uses this mode)."""
++    shift_logits = logits[0, :-1]
++    shift_hidden = hidden[0, :-1]
++    shift_labels = labels[0, 1:]
++    mask = shift_labels != ignore_index
++    sup_idx = mask.nonzero(as_tuple=True)[0]
++    n_sup = int(sup_idx.numel())
++    if n_sup == 0:
++        raise RuntimeError("Example has zero supervised positions.")
++    V = shift_logits.shape[-1]
++    d = shift_hidden.shape[-1]
++    r_bar = torch.zeros(V, dtype=torch.float32, device=logits.device)
++    h_bar = torch.zeros(d, dtype=torch.float32, device=logits.device)
++    for start in range(0, n_sup, chunk_size):
++        idx = sup_idx[start:start + chunk_size]
++        r = torch.softmax(shift_logits[idx].float(), dim=-1)
++        r[torch.arange(len(idx), device=logits.device), shift_labels[idx]] -= 1.0
++        r_bar += r.sum(0)
++        h_bar += shift_hidden[idx].float().sum(0)
++        del r
++    return r_bar / n_sup, h_bar / n_sup, n_sup
++
++
++def build_ablation_projectors(model, proj_dim, device):
++    """Rademacher projectors for the factor-mean ablations: res-only (V -> proj)
++    seed 11, h-only (d -> proj) seed 12. Pooled-factor reuses the seed-0 prod
++    projector on outer(r_bar, h_bar) so its rows share prod's basis."""
++    lm_head = model.get_output_embeddings()
++    V, d = lm_head.weight.shape
++    proj_r = projectorcls(proj_dim=int(proj_dim), grad_dim=int(V), seed=11,
++                          proj_type=ProjectionType.rademacher, device=device,
++                          dtype=torch.bfloat16, block_size=4, max_batch_size=8)
++    proj_h = projectorcls(proj_dim=int(proj_dim), grad_dim=int(d), seed=12,
++                          proj_type=ProjectionType.rademacher, device=device,
++                          dtype=torch.bfloat16, block_size=4, max_batch_size=8)
++    nf_r = torch.sqrt(torch.tensor(float(V), dtype=torch.float32, device=device))
++    nf_h = torch.sqrt(torch.tensor(float(d), dtype=torch.float32, device=device))
++    return proj_r, proj_h, nf_r, nf_h
++
++
++def run_ablation_pass(model, input_ids, labels, prod_projector,
++                      prod_normalize_factor, proj_r, proj_h, nf_r, nf_h):
++    """No-grad forward -> (honly_row, resonly_row, pooled_row).
++    pooled = prod projector applied to outer(r_bar, h_bar): same ingredients
++    as prod but binding destroyed (means before the outer product)."""
++    with torch.no_grad():
++        # No labels passed to the model: the CE loss is not needed and both
++        # wastes memory and trips OLMo's fused-loss path. Logits stay in
++        # model dtype here; compute_factor_means floats them per chunk
++        # (passing .float() upfront materialized a full fp32 [T,V] tensor
++        # and OOMed 7B teachers at 24GB).
++        outputs = model(input_ids=input_ids, output_hidden_states=True,
++                        use_cache=False)
++        r_bar, h_bar, n_sup = compute_factor_means(
++            outputs.logits, outputs.hidden_states[-1], labels)
++        res_row = (proj_r.project(r_bar.unsqueeze(0), model_id=0)
++                   / nf_r).squeeze(0).float().cpu().numpy()
++        h_row = (proj_h.project(h_bar.unsqueeze(0), model_id=0)
++                 / nf_h).squeeze(0).float().cpu().numpy()
++        pooled = torch.outer(r_bar, h_bar).reshape(1, -1)
++        pooled_row = (prod_projector.project(pooled, model_id=0)
++                      / prod_normalize_factor).squeeze(0).float().cpu().numpy()
++        del outputs, r_bar, h_bar, pooled
++        if input_ids.is_cuda:
++            torch.cuda.empty_cache()
++    return h_row, res_row, pooled_row
++
++
++def run_prod_pass(
++    model,
++    input_ids,
++    labels,
++    prod_projector,
++    prod_normalize_factor,
++    s_r,
++    s_h,
++    row_scale_mode: str = ROW_SCALE_NONE,
++):
++    """Pass (a): torch.no_grad() forward + chunked prod features for ONE example.
++
++    Returns (prod_row, prod2s_row) as float32 numpy arrays. Aggressively frees
++    the logits / hidden-state / workspace tensors and empties the CUDA cache
++    before returning, so nothing from this pass coexists with the full-gradient
++    backward pass (otherwise both OOM together on 24GB cards). ``row_scale_mode`` is
++    applied after projection and therefore does not change feature direction.
++    """
++    with torch.no_grad():
++        outputs = model(input_ids=input_ids, output_hidden_states=True)
++        logits = outputs.logits
++        hidden = outputs.hidden_states[-1]
++        G, g2s, n_sup = compute_prod_features(logits, hidden, labels, s_r=s_r, s_h=s_h)
++        row_scale = row_scale_from_n_sup(n_sup, row_scale_mode)
++        del outputs, logits, hidden
++
++        # PRIMARY: exact output-readout gradient term, JL-projected like full grads.
++        # fast_jl only accepts fp16/fp32 input (the default full-grad path
++        # feeds fp32, since --dtype auto loads the model in fp32), so keep fp32.
++        g_flat = G.reshape(1, -1).contiguous()
++        projected_prod = prod_projector.project(g_flat, model_id=0) / prod_normalize_factor
++        if row_scale_mode != ROW_SCALE_NONE:
++            projected_prod.mul_(row_scale)
++        prod_row = projected_prod.squeeze(0).float().cpu().numpy()
++        del G, g_flat, projected_prod
++
++        # SECONDARY: two-sided sketch (accumulated tokenwise above, no (V, d) copy).
++        g2s_flat = g2s.reshape(-1) / prod_normalize_factor
++        if row_scale_mode != ROW_SCALE_NONE:
++            g2s_flat.mul_(row_scale)
++        prod2s_row = g2s_flat.float().cpu().numpy()
++        del g2s, g2s_flat
++
++    if input_ids.is_cuda:
++        torch.cuda.empty_cache()
++    return prod_row, prod2s_row
++
++
++def assert_zero_dropout(model: torch.nn.Module):
++    """The long-example ckpt path flips .train() temporarily; that is only a
++    numeric no-op if every dropout has p=0. Fail loudly otherwise."""
++    for name, module in model.named_modules():
++        if isinstance(module, torch.nn.Dropout) and module.p != 0.0:
++            raise RuntimeError(
++                f"Dropout module {name} has p={module.p} != 0; the checkpointed "
++                "full-grad pass would change numerics. Refusing to proceed."
++            )
++    attn_dropout = getattr(model.config, "attention_dropout", 0.0)
++    if attn_dropout != 0.0:
++        raise RuntimeError(
++            f"config.attention_dropout={attn_dropout} != 0; the checkpointed "
++            "full-grad pass would change numerics. Refusing to proceed."
++        )
++
++
++def run_full_grad_pass(model, input_ids, labels, use_lora, gradientproj, normalize_factor,
++                       ckpt_threshold: int = FULL_GRAD_CKPT_THRESHOLD_TOKENS,
++                       row_scale_mode: str = ROW_SCALE_NONE):
++    """Pass (b): the ORIGINAL forward + loss.backward() full-gradient path.
++
++    Returns the projected full-gradient row as a float32 numpy array. The
++    optional row scale is applied after projection.
++
++    For sequences longer than `ckpt_threshold` tokens, HF gradient checkpointing
++    (use_reentrant=False) is enabled for THIS example only; the plain fp32 path
++    OOMs on 24GB cards above T~42xx (see file header). Checkpointing replays the
++    same fp32 ops, so the gradient is fp32-machine-precision equivalent
++    (measured rel L2 ~5e-6 on the projected row, see file header).
++    """
++    # Keep the default path behavior unchanged: avoid a new device sync and
++    # batch-shape restriction unless the paper-length adapter was requested.
++    if row_scale_mode == ROW_SCALE_NONE:
++        row_scale = 1.0
++    else:
++        row_scale = row_scale_from_n_sup(
++            supervised_token_count(labels), row_scale_mode
++        )
++    use_ckpt = input_ids.shape[1] > ckpt_threshold
++    was_training = model.training
++    if use_ckpt:
++        assert_zero_dropout(model)
++        model.gradient_checkpointing_enable(
++            gradient_checkpointing_kwargs={"use_reentrant": False}
++        )
++        # HF only routes through the checkpointing func in training mode; with
++        # all dropout asserted zero this is a numeric no-op.
++        model.train(True)
++    try:
++        if use_ckpt:
++            outputs = model(input_ids=input_ids, labels=labels, use_cache=False)
++        else:
++            outputs = model(input_ids=input_ids, labels=labels)
++        loss = outputs.loss
++        loss.backward()
++
++        grads = extract_gradients(model, use_lora)
++        collected_grads = grads.unsqueeze(0)
++        projected_grad = gradientproj.project(collected_grads, model_id=0) / normalize_factor
++        if row_scale_mode != ROW_SCALE_NONE:
++            projected_grad.mul_(row_scale)
++        row = projected_grad.squeeze(0).detach().cpu().numpy()
++
++        del outputs, loss, grads, collected_grads, projected_grad
++        model.zero_grad(set_to_none=True)
++    finally:
++        if use_ckpt:
++            model.gradient_checkpointing_disable()
++            model.train(was_training)
++            if input_ids.is_cuda:
++                torch.cuda.empty_cache()
++    return row
++
++
++def derive_ablation_paths(base_path: str):
++    root, ext = os.path.splitext(base_path)
++    ext = ext or ".pkl"
++    return (f"{root}_honly{ext}", f"{root}_resonly{ext}", f"{root}_pooled{ext}")
++
++
++def derive_prod2s_path(prod_output_path: str) -> str:
++    root, ext = os.path.splitext(prod_output_path)
++    if ext == "":
++        return prod_output_path + "_prod2s"
++    return f"{root}_prod2s{ext}"
++
++
++def sanity_check_features(rows, name: str, expected_n: int, expected_dim: int):
++    """NO-SILENT-FALLBACKS policy: fail loudly before writing wrong-but-plausible data."""
++    arr = np.asarray(rows, dtype=np.float64)
++    if arr.ndim != 2:
++        raise RuntimeError(f"[{name}] expected 2D feature array, got shape {arr.shape}")
++    if arr.shape != (expected_n, expected_dim):
++        raise RuntimeError(
++            f"[{name}] expected shape {(expected_n, expected_dim)}, got {arr.shape}"
++        )
++    if not np.isfinite(arr).all():
++        raise RuntimeError(f"[{name}] non-finite values in features")
++    if float(arr.std()) <= 0.0:
++        raise RuntimeError(f"[{name}] zero variance across all features")
++    n_unique = len({row.tobytes() for row in arr})
++    if n_unique <= expected_n // 2:
++        raise RuntimeError(
++            f"[{name}] only {n_unique}/{expected_n} unique rows — looks like the "
++            "empty-prompt/duplicate-feature bug class; refusing to write."
++        )
++    print(f"[{name}] sanity OK: shape={arr.shape}, std={arr.std():.3e}, unique_rows={n_unique}/{expected_n}")
++
++
++def save_pickle(rows, path: str, name: str, expected_n: int, expected_dim: int):
++    sanity_check_features(rows, name, expected_n, expected_dim)
++    out_dir = os.path.dirname(path)
++    if out_dir:
++        os.makedirs(out_dir, exist_ok=True)
++    print(f"Saving {name} to: {path}")
++    with open(path, "wb") as f:
++        pickle.dump(rows, f)
++
+ 
+ def main():
+     args = parse_args()
+ 
++    do_full = args.feature in ("full_grad", "both")
++    do_prod = args.feature in ("prod", "both")
++    do_abl = args.feature == "ablation"
++    if do_abl and not args.prod_output_path:
++        raise ValueError("--prod-output-path is the base path for ablation outputs.")
++
++    if do_abl:
++        # row-scale is not implemented for the ablation rows; refuse rather
++        # than silently ignore it (no-silent-fallback policy).
++        if args.row_scale != ROW_SCALE_NONE:
++            raise ValueError("--row-scale is not supported in ablation mode.")
++    elif do_prod and not args.prod_output_path:
++        raise ValueError("--prod-output-path is required when --feature is 'prod' or 'both'.")
++    if not do_abl and not do_prod and args.prod_output_path:
++        raise ValueError("--prod-output-path given but --feature does not include prod.")
++    if do_prod and args.use_lora:
++        raise ValueError("prod feature targets the full-model lm_head; --use-lora is unsupported with it.")
++
+     output_dir = os.path.dirname(args.output_path)
+     if output_dir:
+         os.makedirs(output_dir, exist_ok=True)
+@@ -184,6 +745,8 @@ def main():
+     print(f"Loading model from: {args.model}")
+     print(f"Using LoRA: {args.use_lora}")
+     print(f"Projection dim: {args.proj_dim}")
++    print(f"Feature mode: {args.feature}")
++    print(f"Row scale: {args.row_scale}")
+ 
+     model, gradientproj, normalize_factor, grad_dim = build_model(
+         student_pth=args.model,
+@@ -191,41 +754,93 @@ def main():
+         use_lora=args.use_lora,
+         proj_dim=args.proj_dim,
+         dtype=args.dtype,
++        include_full_projector=do_full,
+     )
+ 
+     device = next(model.parameters()).device
+-    print(f"Gradient dimension before projection: {grad_dim}")
++    if do_full:
++        print(f"Gradient dimension before projection: {grad_dim}")
++    else:
++        print("Full-gradient projector: skipped in forward-only prod mode")
++
++    prod_projector = None
++    prod_normalize_factor = None
++    s_r = s_h = None
++    prod2s_path = None
++    proj_r = proj_h = nf_r = nf_h = None
++    if do_abl:
++        prod_projector, prod_normalize_factor, s_r, s_h = build_prod_projector(
++            model, args.proj_dim, device)
++        proj_r, proj_h, nf_r, nf_h = build_ablation_projectors(model, args.proj_dim, device)
++        print(f"ablation outputs base: {args.prod_output_path}")
++    if do_prod:
++        prod_projector, prod_normalize_factor, s_r, s_h = build_prod_projector(
++            model, args.proj_dim, device
++        )
++        prod2s_path = derive_prod2s_path(args.prod_output_path)
++        print(f"prod outputs: {args.prod_output_path} and {prod2s_path}")
++
++    for projector in (gradientproj, prod_projector, proj_r, proj_h):
++        if projector is not None:
++            set_projector_num_sms(projector, args.num_sms)
++    print(f"fast_jl num_sms: {'GPU default' if args.num_sms is None else args.num_sms}")
+ 
+     print(f"Loading data from: {args.data_path}")
+     data = load_from_disk(args.data_path)
+     print(f"Processing {len(data)} examples")
+ 
+     all_projected_grads = []
++    all_prod = []
++    all_prod2s = []
++    all_h, all_res, all_pooled = [], [], []
+ 
+     for d in tqdm(data):
+         input_ids = torch.tensor(d["input_ids"], device=device).unsqueeze(0)
+         labels = torch.tensor(d["labels"], device=device).unsqueeze(0)
+ 
+-       
+-        outputs = model(input_ids=input_ids, labels=labels)
+-        loss = outputs.loss
+-        loss.backward()
+-
+-        grads = extract_gradients(model, args.use_lora)
+-        collected_grads = grads.unsqueeze(0)
+-        projected_grad = gradientproj.project(collected_grads, model_id=0) / normalize_factor
+-
+-        all_projected_grads.append(projected_grad.squeeze(0).detach().cpu().numpy())
+-
+-        del grads, collected_grads, projected_grad, outputs, loss, input_ids, labels
+-        model.zero_grad(set_to_none=True)
+-
+-    print(f"Saving projected gradients to: {args.output_path}")
+-    with open(args.output_path, "wb") as f:
+-        pickle.dump(all_projected_grads, f)
++        # Pass (a) FIRST: no-grad prod pass with full cleanup, so the prod
++        # workspace never coexists with the fp32 logits held for backward.
++        if do_prod:
++            prod_row, prod2s_row = run_prod_pass(
++                model, input_ids, labels,
++                prod_projector, prod_normalize_factor, s_r, s_h,
++                row_scale_mode=args.row_scale,
++            )
++            all_prod.append(prod_row)
++            all_prod2s.append(prod2s_row)
++
++        if do_abl:
++            h_row, res_row, pooled_row = run_ablation_pass(
++                model, input_ids, labels, prod_projector,
++                prod_normalize_factor, proj_r, proj_h, nf_r, nf_h)
++            all_h.append(h_row); all_res.append(res_row); all_pooled.append(pooled_row)
++
++        # Pass (b): original full-gradient forward + backward (unchanged).
++        if do_full:
++            all_projected_grads.append(
++                run_full_grad_pass(
++                    model, input_ids, labels, args.use_lora,
++                    gradientproj, normalize_factor,
++                    row_scale_mode=args.row_scale,
++                )
++            )
++
++        del input_ids, labels
++
++    n = len(data)
++    if do_full:
++        save_pickle(all_projected_grads, args.output_path, "full_grad", n, args.proj_dim)
++    if do_prod:
++        save_pickle(all_prod, args.prod_output_path, "prod", n, args.proj_dim)
++        save_pickle(all_prod2s, prod2s_path, "prod2s", n, PROD2S_R_DIM * PROD2S_H_DIM)
++    if do_abl:
++        hp, rp, pp = derive_ablation_paths(args.prod_output_path)
++        save_pickle(all_h, hp, "honly", n, args.proj_dim)
++        save_pickle(all_res, rp, "resonly", n, args.proj_dim)
++        save_pickle(all_pooled, pp, "pooled", n, args.proj_dim)
+ 
+     print("Done.")
+ 
+ 
+ if __name__ == "__main__":
+-    main()
+\ No newline at end of file
++    main()
+diff --git a/data_generation/generate_responses.py b/data_generation/generate_responses.py
+index 4c1d0bd148429dfe191378743b87e5d41afd6a0a..c70151bd62c598aee8aae0b88f95d7df1a9df6cb 100644
+--- a/data_generation/generate_responses.py
++++ b/data_generation/generate_responses.py
+@@ -77,17 +77,27 @@ def main():
+     parser.add_argument("--top_p", type=float, default=1.0)
+     parser.add_argument("--tensor_parallel_size", type=int, default=2)
+     parser.add_argument("--gpu_memory_utilization", type=float, default=0.9)
++    parser.add_argument("--max_model_len", type=int, default=None,
++                        help="Cap vLLM context (24GB cards cannot hold 128k KV cache).")
++    parser.add_argument("--max_num_seqs", type=int, default=None,
++                        help="Cap concurrent seqs (sampler warmup OOMs at default 256 on 24GB).")
+     parser.add_argument("--template", type=str, default=None, help="Template should contain one field - problem")
+     parser.add_argument("--responses_per_question", type=int, default=16)
+     args = parser.parse_args()
+ 
+     items = load_items(args.input_file)
+ 
++    extra = {}
++    if args.max_model_len is not None:
++        extra["max_model_len"] = args.max_model_len
++    if args.max_num_seqs is not None:
++        extra["max_num_seqs"] = args.max_num_seqs
+     llm = LLM(
+         model=args.model_path,
+         tensor_parallel_size=args.tensor_parallel_size,
+         gpu_memory_utilization=args.gpu_memory_utilization,
+         trust_remote_code=True,
++        **extra,
+     )
+ 
+     tokenizer = llm.get_tokenizer()
+diff --git a/scripts/featurize_math_full.py b/scripts/featurize_math_full.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..79cfc61c92d50bf6366aca56f10f5e4fb1959af4
+--- /dev/null
++++ b/scripts/featurize_math_full.py
+@@ -0,0 +1,189 @@
++#!/usr/bin/env python
++"""MATH / Llama-3.2-3B full-gradient features for LESSER paper Table 12, row 3 (scores via
++grace/score.py of the LESSER code release). --code-dir defaults to this checkout's GRACE/,
++and --num-sms defaults to 128. The paper run peaked at 49.4 GiB of allocated GPU memory
++(fp32 3B student: parameters, gradients, concatenated gradient).
++
++Student: meta-llama/Llama-3.2-3B (BASE), fp32. The paper run used an RTX PRO 6000
++Blackwell 96GB GPU: the fp32 3B params+grads+concat (~38.6GB) do not fit a 24GB
++RTX 4090, on which the other banks were computed.
++
++Data: <data-dir>/<short>.hf (2048 rows = 512 problems x 4 gens, tokenized with
++the student tokenizer by scripts/math_tokenize_all.sh).
++
++Per row, using the UNMODIFIED pipeline function run_full_grad_pass from
++GRACE/gradient_computation.py: forward + loss.backward(), ALL trainable parameter gradients
++concatenated in named_parameters order (grad_dim=3,212,749,824), projected with
++the pipeline's CudaProjector(seed=0, rademacher, proj_dim=512) / sqrt(grad_dim).
++Sequences > 2560 tokens use the pipeline's own gradient-checkpointing path
++(fp32-machine-precision equivalent, measured at rel ~5e-6 by scripts/memory_probe_both.py).
++
++Checks run before the paper run (separate one-time scripts, not included): fast_jl
++validity above 2^31 dims, cross-GPU projector identity with num_sms pinned to 128, PROD
++2-row equivalence against rows computed on the RTX 4090, fp32 load under transformers 5.3.
++
++INTENTIONAL DIVERGENCE from the upstream default: dtype requested as
++"float32" explicitly instead of "auto" (float32 under the transformers 4.51.1 of
++the other runs) — transformers 5.3 may resolve auto to the bf16 checkpoint dtype;
++fp32 is asserted after load.
++
++NO-SILENT-FALLBACK gates per teacher (all raise):
++  - dataset has exactly 2048 rows with input_ids/labels columns;
++  - save_pickle's built-in checks: shape (2048,512), finite, std>0,
++    unique rows > 50%;
++  - 2-row recompute determinism (deterministic random.Random(short) rows),
++    cos > 0.999999 and max rel diff < 1e-4 (same convention as
++    scripts/featurize_math_prod.py);
++  - grad_dim == 3,212,749,824 and fp32 params asserted at startup.
++
++Output: <out-dir>/Gradients_<short>.pkl (list of 2048 float32 arrays, d=512,
++same pickle format as the gsm8k Gradients caches) + mathfg_meta_<short>.json
++(gates + stats + timing; written last = completion marker, so the run is
++resumable per teacher).
++"""
++import argparse
++import json
++import os
++import pickle
++import random
++import sys
++import time
++
++import numpy as np
++import torch
++from datasets import load_from_disk
++
++REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++ap = argparse.ArgumentParser()
++ap.add_argument("--code-dir", default=os.path.join(REPO, "GRACE"),
++                help="directory holding gradient_computation.py (default: this checkout)")
++ap.add_argument("--data-dir", required=True)
++ap.add_argument("--out-dir", required=True)
++ap.add_argument("--device", default="cuda:0")
++ap.add_argument("--teachers", nargs="+", required=True)
++ap.add_argument("--num-sms", type=int, default=128,
++                help="SM count pinned for fast_jl (128 = the stored paper features)")
++args = ap.parse_args()
++
++sys.path.insert(0, args.code_dir)
++from gradient_computation import (  # noqa: E402  (unmodified pipeline module)
++    IGNORE_INDEX,
++    build_model,
++    run_full_grad_pass,
++    save_pickle,
++    set_projector_num_sms,
++)
++import transformers  # noqa: E402
++
++STUDENT = "meta-llama/Llama-3.2-3B"
++EXPECTED_GRAD_DIM = 3_212_749_824
++PROJ_DIM = 512
++N_ROWS = 2048
++
++ALL_TEACHERS = [
++    "Qwen2.5-Math-1.5B-Instruct", "Qwen2.5-1.5B-Instruct", "Qwen2.5-Math-7B-Instruct",
++    "Qwen2.5-3B-Instruct", "Llama-3.2-3B-Instruct", "Qwen2.5-7B-Instruct",
++    "Gemma-2-2b-it", "Llama-3.1-8B-Instruct", "OLMo-2-7B-Instruct", "Gemma-2-9b-it",
++    # Four larger teachers of the 14-teacher GSM8K roster:
++    "Qwen2.5-14B-Instruct", "Phi-4", "OLMo-2-13B-Instruct", "Gemma-2-27b-it",
++]
++for t in args.teachers:
++    if t not in ALL_TEACHERS:
++        raise ValueError(f"unknown teacher {t}")
++
++os.makedirs(args.out_dir, exist_ok=True)
++device = args.device
++torch.manual_seed(0)
++print(f"[load] student {STUDENT} fp32 (transformers {transformers.__version__})", flush=True)
++model, gradientproj, normalize_factor, grad_dim = build_model(
++    student_pth=STUDENT, device=device, use_lora=False, proj_dim=PROJ_DIM, dtype="float32",
++)
++model.eval()
++# fast_jl's sign stream depends on the num_sms launch argument; forcing the
++# RTX 4090 value (128) reproduces the RTX 4090 projection on other GPUs
++# (measured cross-GPU cos 0.9999916 at the full-grad dim).
++set_projector_num_sms(gradientproj, args.num_sms)
++if next(model.parameters()).dtype != torch.float32:
++    raise RuntimeError("student not fp32")
++if grad_dim != EXPECTED_GRAD_DIM:
++    raise RuntimeError(f"grad_dim {grad_dim} != {EXPECTED_GRAD_DIM}")
++print(f"[load] grad_dim={grad_dim} ok", flush=True)
++
++for short in args.teachers:
++    meta_path = os.path.join(args.out_dir, f"mathfg_meta_{short}.json")
++    if os.path.exists(meta_path):
++        print(f"[skip] {short} complete ({meta_path})", flush=True)
++        continue
++    t0 = time.time()
++    data = load_from_disk(os.path.join(args.data_dir, f"{short}.hf"))
++    if len(data) != N_ROWS:
++        raise RuntimeError(f"{short}: {len(data)} rows != {N_ROWS}")
++    for col in ("input_ids", "labels"):
++        if col not in data.column_names:
++            raise RuntimeError(f"{short}: missing column {col}; have {data.column_names}")
++
++    grad_rows = []
++    seq_len = np.zeros(N_ROWS, dtype=np.int64)
++    n_ckpt = 0
++    for row in range(N_ROWS):
++        d = data[row]
++        ii = torch.tensor([d["input_ids"]], device=device)
++        ll = torch.tensor([d["labels"]], device=device)
++        seq_len[row] = ii.shape[1]
++        if int((np.asarray(d["labels"])[1:] != IGNORE_INDEX).sum()) < 1:
++            raise RuntimeError(f"{short} row {row}: zero supervised positions")
++        if ii.shape[1] > 2560:
++            n_ckpt += 1
++        grad_rows.append(
++            run_full_grad_pass(model, ii, ll, False, gradientproj, normalize_factor)
++        )
++        del ii, ll
++        if (row + 1) % 128 == 0:
++            el = time.time() - t0
++            print(f"[{short}] {row+1}/{N_ROWS} rows, {el:.0f}s ({el/(row+1):.2f} s/row, "
++                  f"peak {torch.cuda.max_memory_allocated()/2**30:.1f} GiB)", flush=True)
++
++    # ---- 2-row recompute determinism gate (same convention as featurize_math_prod.py) ----
++    chk = random.Random(short).sample(range(N_ROWS), 2)
++    det = {}
++    for row in chk:
++        d = data[row]
++        ii = torch.tensor([d["input_ids"]], device=device)
++        ll = torch.tensor([d["labels"]], device=device)
++        g = run_full_grad_pass(model, ii, ll, False, gradientproj, normalize_factor)
++        ref = grad_rows[row]
++        cos = float(np.dot(g, ref) / (np.linalg.norm(g) * np.linalg.norm(ref)))
++        rel = float(np.abs(g - ref).max() / (np.abs(ref).max() + 1e-30))
++        det[row] = {"cos": cos, "max_rel_diff": rel, "seq_len": int(ii.shape[1])}
++        if cos < 0.999999 or rel > 1e-4:
++            raise RuntimeError(f"{short} row {row}: recompute mismatch cos={cos} rel={rel}")
++        del ii, ll
++    print(f"[{short}] determinism gate passed on rows {chk}: {det}", flush=True)
++
++    # ---- save (save_pickle = pipeline sanity: shape/finite/std/unique) ----
++    save_pickle(grad_rows, os.path.join(args.out_dir, f"Gradients_{short}.pkl"),
++                f"full_grad[{short}]", N_ROWS, PROJ_DIM)
++
++    arr = np.asarray(grad_rows, dtype=np.float32)
++    uniq = len({r.tobytes() for r in arr})
++    meta = {
++        "student": STUDENT, "proj_dim": PROJ_DIM, "grad_dim": int(grad_dim),
++        "projector": "CudaProjector rademacher seed=0 / sqrt(grad_dim), pipeline convention",
++        "dtype": "float32 (explicit; auto==fp32 under transformers 4.51.1)",
++        "transformers": transformers.__version__, "torch": torch.__version__,
++        "gpu": torch.cuda.get_device_properties(0).name,
++        "num_sms_forced": args.num_sms,
++        "n_rows": N_ROWS, "seconds": time.time() - t0,
++        "s_per_row": (time.time() - t0) / N_ROWS,
++        "n_ckpt_rows_gt2560": n_ckpt,
++        "grad_std": float(arr.std()), "grad_unique_rows": uniq,
++        "grad_row_norm_mean": float(np.linalg.norm(arr, axis=1).mean()),
++        "seq_len": {"mean": float(seq_len.mean()), "max": int(seq_len.max())},
++        "peak_mem_gib": round(torch.cuda.max_memory_allocated() / 2**30, 2),
++        "determinism_rows": det,
++    }
++    with open(meta_path, "w") as f:
++        json.dump(meta, f, indent=2)
++    print(f"[{short}] saved ({time.time()-t0:.0f}s): {meta_path}", flush=True)
++
++print("[done]", flush=True)
+diff --git a/scripts/featurize_math_prod.py b/scripts/featurize_math_prod.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..23838c5db50a77c409072539876fad0ba5b9c690
+--- /dev/null
++++ b/scripts/featurize_math_prod.py
+@@ -0,0 +1,202 @@
++#!/usr/bin/env python
++"""MATH / Llama-3.2-3B LESSER features for LESSER paper Table 12, row 3 (the full-gradient
++features come from scripts/featurize_math_full.py; scores via grace/score.py of the
++LESSER code release). The fast_jl SM count is pinned (--num-sms, default 128), and the
++student is loaded in float32 explicitly (transformers 4.51.1 loads float32 by default;
++newer releases may load the bf16 checkpoint dtype).
++
++Student: meta-llama/Llama-3.2-3B (BASE, per the paper's MATH setting), fp32.
++Data: grace_data/math_synthetic/<short>.hf (2048 rows = 512 problems x 4 gens,
++tokenized with the STUDENT tokenizer by data_generation/tokenize_data.py).
++
++Per row, using the UNMODIFIED pipeline functions from GRACE/gradient_computation.py:
++  - prod    : run_prod_pass -> exact output-readout contribution
++              G = (1/n_sup) R^T H (the student has tied embeddings),
++              flattened (V*d) through CudaProjector(seed=0, rademacher,
++              proj_dim=512) / sqrt(V*d). Saved as Prod_<short>.pkl
++              (list of 2048 float32 arrays, same format as the gsm8k caches).
++  - prod2s  : two-sided sketch from the same pass -> Prod_<short>_prod2s.pkl.
++  - nll     : mean per-token NLL = HF model(input_ids, labels).loss (no_grad),
++              i.e. exactly the mean-CE the gradients differentiate.
++  - tok     : n_sup = number of supervised shifted positions (labels != -100).
++              nll+tok saved as nll_tok_<short>.npz (nll f64, tok_count i64).
++
++NO-SILENT-FALLBACK gates, all raise on failure:
++  - dataset must have exactly 2048 rows with input_ids/labels columns;
++  - save_pickle's built-in checks: shape (2048,512), finite, std>0,
++    unique rows > 50%;
++  - 2-row recompute determinism: after the full pass, 2 deterministic random
++    rows are recomputed with run_prod_pass and must match the stored row
++    (cos > 0.999999 and max|diff| relative < 1e-4);
++  - tok_count >= 1 everywhere (compute_prod_features itself raises at 0),
++    nll finite with std > 0.
++
++Output dir: --out-dir (+ per-teacher meta json math_prod_meta_<short>.json,
++written last = completion marker). The nll_tok_<short>.npz files and the prod2s
++pickles are by-products that no LESSER paper result uses.
++
++Run (one queue per GPU):
++  CUDA_VISIBLE_DEVICES=<g> .venv/bin/python scripts/featurize_math_prod.py \
++    --out-dir <features>/math_llama3b --teachers <short> [<short> ...]
++"""
++import argparse
++import json
++import os
++import pickle
++import random
++import sys
++import time
++
++import numpy as np
++import torch
++from datasets import load_from_disk
++
++REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++sys.path.insert(0, os.path.join(REPO, "GRACE"))
++from gradient_computation import (  # noqa: E402  (unmodified pipeline module)
++    IGNORE_INDEX,
++    PROD2S_R_DIM,
++    PROD2S_H_DIM,
++    build_prod_projector,
++    run_prod_pass,
++    save_pickle,
++    set_projector_num_sms,
++)
++from transformers import AutoModelForCausalLM  # noqa: E402
++
++STUDENT = "meta-llama/Llama-3.2-3B"
++PROJ_DIM = 512
++N_ROWS = 2048
++
++ALL_TEACHERS = [
++    "Qwen2.5-Math-1.5B-Instruct", "Qwen2.5-1.5B-Instruct", "Qwen2.5-Math-7B-Instruct",
++    "Qwen2.5-3B-Instruct", "Llama-3.2-3B-Instruct", "Qwen2.5-7B-Instruct",
++    "Gemma-2-2b-it", "Llama-3.1-8B-Instruct", "OLMo-2-7B-Instruct", "Gemma-2-9b-it",
++    # Four larger teachers of the 14-teacher GSM8K roster:
++    "Qwen2.5-14B-Instruct", "Phi-4", "OLMo-2-13B-Instruct", "Gemma-2-27b-it",
++]
++
++
++def n_supervised(labels_row):
++    lab = np.asarray(labels_row)
++    n_sup = int((lab[1:] != IGNORE_INDEX).sum())  # HF causal shift
++    if n_sup < 1:
++        raise RuntimeError("row with zero supervised shifted positions")
++    return n_sup
++
++
++def main():
++    ap = argparse.ArgumentParser()
++    ap.add_argument("--teachers", nargs="+", required=True, choices=ALL_TEACHERS)
++    ap.add_argument("--out-dir", required=True, help="where the feature pickles are written")
++    ap.add_argument("--data-dir", default=os.path.join(REPO, "grace_data", "math_synthetic"),
++                    help="tokenized MATH sets <short>.hf from scripts/math_tokenize_all.sh")
++    ap.add_argument("--num-sms", type=int, default=128,
++                    help="SM count pinned for fast_jl (128 = the stored paper features)")
++    args = ap.parse_args()
++    OUT = args.out_dir
++
++    os.makedirs(OUT, exist_ok=True)
++    device = "cuda"
++    torch.manual_seed(0)
++    print(f"[load] student {STUDENT} fp32", flush=True)
++    model = AutoModelForCausalLM.from_pretrained(STUDENT, torch_dtype=torch.float32).to(device)
++    model.eval()
++    if next(model.parameters()).dtype != torch.float32:
++        raise RuntimeError("student not fp32")
++    lm_head = model.get_output_embeddings()
++    vocab_size, hidden_dim = lm_head.weight.shape
++    print(f"vocab={vocab_size} hidden={hidden_dim} tied={model.config.tie_word_embeddings}", flush=True)
++
++    prod_projector, prod_norm, s_r, s_h = build_prod_projector(model, PROJ_DIM, device)
++    set_projector_num_sms(prod_projector, args.num_sms)
++
++    for short in args.teachers:
++        meta_path = os.path.join(OUT, f"math_prod_meta_{short}.json")
++        if os.path.exists(meta_path):
++            print(f"[skip] {short} complete ({meta_path})", flush=True)
++            continue
++        t0 = time.time()
++        data = load_from_disk(os.path.join(args.data_dir, f"{short}.hf"))
++        if len(data) != N_ROWS:
++            raise RuntimeError(f"{short}: {len(data)} rows != {N_ROWS}")
++        for col in ("input_ids", "labels"):
++            if col not in data.column_names:
++                raise RuntimeError(f"{short}: missing column {col}; have {data.column_names}")
++
++        prod_rows, prod2s_rows = [], []
++        tok = np.zeros(N_ROWS, dtype=np.int64)
++        nll = np.zeros(N_ROWS, dtype=np.float64)
++        seq_len = np.zeros(N_ROWS, dtype=np.int64)
++        for row in range(N_ROWS):
++            d = data[row]
++            ii = torch.tensor([d["input_ids"]], device=device)
++            ll = torch.tensor([d["labels"]], device=device)
++            seq_len[row] = ii.shape[1]
++            tok[row] = n_supervised(d["labels"])
++            p_row, p2_row = run_prod_pass(model, ii, ll, prod_projector, prod_norm, s_r, s_h)
++            prod_rows.append(p_row)
++            prod2s_rows.append(p2_row)
++            with torch.no_grad():
++                nll[row] = float(model(input_ids=ii, labels=ll).loss)
++            del ii, ll
++            if (row + 1) % 256 == 0:
++                el = time.time() - t0
++                print(f"[{short}] {row+1}/{N_ROWS} rows, {el:.0f}s ({el/(row+1):.2f} s/row)", flush=True)
++
++        # ---- 2-row recompute determinism gate ----
++        chk = random.Random(short).sample(range(N_ROWS), 2)
++        det = {}
++        for row in chk:
++            d = data[row]
++            ii = torch.tensor([d["input_ids"]], device=device)
++            ll = torch.tensor([d["labels"]], device=device)
++            p_row, _ = run_prod_pass(model, ii, ll, prod_projector, prod_norm, s_r, s_h)
++            ref = prod_rows[row]
++            cos = float(np.dot(p_row, ref) / (np.linalg.norm(p_row) * np.linalg.norm(ref)))
++            rel = float(np.abs(p_row - ref).max() / (np.abs(ref).max() + 1e-30))
++            det[row] = {"cos": cos, "max_rel_diff": rel}
++            if cos < 0.999999 or rel > 1e-4:
++                raise RuntimeError(f"{short} row {row}: recompute mismatch cos={cos} rel={rel}")
++            del ii, ll
++        print(f"[{short}] determinism gate passed on rows {chk}: {det}", flush=True)
++
++        # ---- scalar sanity ----
++        if not np.isfinite(nll).all() or float(nll.std()) <= 0.0:
++            raise RuntimeError(f"{short}: bad nll vector")
++        if tok.min() < 1:
++            raise RuntimeError(f"{short}: min tok_count {tok.min()} < 1")
++
++        # ---- save (save_pickle = pipeline sanity: shape/finite/std/unique) ----
++        save_pickle(prod_rows, os.path.join(OUT, f"Prod_{short}.pkl"),
++                    f"prod[{short}]", N_ROWS, PROJ_DIM)
++        save_pickle(prod2s_rows, os.path.join(OUT, f"Prod_{short}_prod2s.pkl"),
++                    f"prod2s[{short}]", N_ROWS, PROD2S_R_DIM * PROD2S_H_DIM)
++        np.savez(os.path.join(OUT, f"nll_tok_{short}.npz"), nll=nll, tok_count=tok,
++                 seq_len=seq_len)
++
++        arr = np.asarray(prod_rows, dtype=np.float32)
++        uniq = len({r.tobytes() for r in arr})
++        meta = {
++            "student": STUDENT, "proj_dim": PROJ_DIM, "vocab": int(vocab_size),
++            "hidden": int(hidden_dim), "grad_dim": int(vocab_size) * int(hidden_dim),
++            "projector": "CudaProjector rademacher seed=0 / sqrt(V*d), pipeline convention",
++            "n_rows": N_ROWS, "seconds": time.time() - t0,
++            "prod_std": float(arr.std()), "prod_unique_rows": uniq,
++            "prod_row_norm_mean": float(np.linalg.norm(arr, axis=1).mean()),
++            "tok_count": {"mean": float(tok.mean()), "median": float(np.median(tok)),
++                          "min": int(tok.min()), "max": int(tok.max())},
++            "seq_len": {"mean": float(seq_len.mean()), "max": int(seq_len.max())},
++            "nll": {"mean": float(nll.mean()), "std": float(nll.std()),
++                    "min": float(nll.min()), "max": float(nll.max())},
++            "determinism_rows": det,
++        }
++        with open(meta_path, "w") as f:
++            json.dump(meta, f, indent=2)
++        print(f"[{short}] saved ({time.time()-t0:.0f}s): {meta_path}", flush=True)
++
++    print("[done]", flush=True)
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/scripts/featurize_olmo_student.py b/scripts/featurize_olmo_student.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..0223a6a7e3591d6fa16537470560c7b225c2c309
+--- /dev/null
++++ b/scripts/featurize_olmo_student.py
+@@ -0,0 +1,279 @@
++#!/usr/bin/env python
++"""GSM8K / OLMo-2-1B features for LESSER paper Table 12, row 2 (full-gradient and LESSER
++features of the ten original teachers; scores via grace/score.py of the LESSER code
++release). The fast_jl SM count is pinned (--num-sms, default 128).
++
++SECOND-STUDENT setting: rescore the SAME 10 teachers' GSM8K generations with
++student allenai/OLMo-2-0425-1B (BASE, UNTIED embeddings: tie_word_embeddings=False,
++verified from config; breaks the tied-embedding confound of Llama-3.2-1B).
++
++Reuses UNMODIFIED pipeline functions from GRACE/gradient_computation.py
++(build_model / build_prod_projector / run_prod_pass / run_full_grad_pass) and
++UNMODIFIED data_generation/tokenize_data.build_example. Rebuilds the exact
++512x4 scoring subsets from the raw generation JSONLs with the same 4-of-16
++subsample rule (random.Random(13*idx+13), shuffle, first 4) used to build the
++stored .hf subsets; a pre-run scan verified problem/solution text of ALL 2048
++rebuilt rows equals the stored .hf rows for every teacher (0 mismatches).
++
++INTENTIONAL DIVERGENCES from the Llama-student pipeline:
++  - max_length=4096 truncation in build_example: OLMo-2 max_position_embeddings
++    is 4096; 13/20480 rows across all teachers exceed it (8 Qwen-Math-7B,
++    3 Llama-3.2-3B, 2 Llama-3.1-8B). Truncated row indices are recorded in meta.
++  - full-grad gradient-checkpoint threshold lowered 2560 -> 2048 tokens: OLMo-2
++    1B has ~1.48B params (untied head) vs Llama-3.2-1B's 1.24B, so params+grads
++    +concat cost ~2GB more; rows >2048 tokens are <=8 per teacher.
++
++Sanity gates per teacher (fail loudly, no silent fallback):
++  - determinism: rows {0, 1017} recomputed twice back-to-back, prod+full rows
++    must agree to cos > 1-1e-9 and rel L2 < 1e-6;
++  - lm_head-grad exactness (first teacher): unprojected G from
++    compute_prod_features must match autograd lm_head.weight.grad (untied =>
++    exactly the head block) with cos > 0.9999;
++  - save_pickle's built-in checks: finite, nonzero variance, unique rows.
++
++Partial progress: per-teacher .partial.npz checkpoints every 256 rows; resume.
++Outputs: <out-dir>/{Gradients,Prod,Prod_*_prod2s}_<short>.pkl (+ featurize_meta.json)
++
++Run: CUDA_VISIBLE_DEVICES=0 .venv/bin/python scripts/featurize_olmo_student.py \
++         --out-dir <features>/gsm8k_olmo1b [--data-dir data/gsm8k_synthetic]
++"""
++import argparse
++import json
++import os
++import pickle
++import random
++import sys
++import time
++
++import numpy as np
++import torch
++
++REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++sys.path.insert(0, os.path.join(REPO, "GRACE"))
++sys.path.insert(0, os.path.join(REPO, "data_generation"))
++from gradient_computation import (  # noqa: E402  (unmodified pipeline module)
++    IGNORE_INDEX,
++    build_model,
++    build_prod_projector,
++    compute_prod_features,
++    run_full_grad_pass,
++    run_prod_pass,
++    save_pickle,
++    set_projector_num_sms,
++)
++from tokenize_data import build_example  # noqa: E402  (unmodified)
++from transformers import AutoTokenizer  # noqa: E402
++
++STUDENT = "allenai/OLMo-2-0425-1B"
++PROJ_DIM = 512
++NQ, NRESP, NGEN = 512, 16, 4
++MAX_LEN = 4096          # OLMo-2 max_position_embeddings
++CKPT_THRESHOLD = 2048   # lowered vs pipeline default 2560 (see header)
++DET_ROWS = (0, 1017)
++
++# Priority order (score-spread first).
++TEACHERS = [
++    "Gemma-2-2b-it", "Gemma-2-9b-it",
++    "Qwen2.5-1.5B-Instruct", "Qwen2.5-3B-Instruct",
++    "Llama-3.2-3B-Instruct", "OLMo-2-7B-Instruct",
++    "Qwen2.5-Math-1.5B-Instruct", "Qwen2.5-Math-7B-Instruct",
++    "Qwen2.5-7B-Instruct", "Llama-3.1-8B-Instruct",
++]
++
++
++def load_jsonl(path):
++    return [json.loads(l) for l in open(path) if l.strip()]
++
++
++def build_subset(short, tokenizer, data_dir):
++    """Rebuild the 512x4 scoring subset with OLMo tokenization. Returns
++    (list of dicts with input_ids/labels, truncated_row_indices)."""
++    syn = load_jsonl(os.path.join(data_dir, f"{short}.jsonl"))
++    if len(syn) != NQ:
++        raise RuntimeError(f"{short}: expected {NQ} questions, got {len(syn)}")
++    rows, truncated = [], []
++    for idx in range(NQ):
++        problem = syn[idx].get("question", syn[idx].get("problem"))
++        if problem is None:
++            raise RuntimeError(f"{short} q{idx}: no question/problem key")
++        responses = syn[idx]["responses"]
++        if len(responses) != NRESP:
++            raise RuntimeError(f"{short} q{idx}: {len(responses)} responses != {NRESP}")
++        rng = random.Random(idx * 13 + 13)
++        resp = responses[:]
++        rng.shuffle(resp)
++        for j in range(NGEN):
++            item = build_example(problem, str(resp[j]), tokenizer, IGNORE_INDEX,
++                                 max_length=MAX_LEN)
++            item_nt = build_example(problem, str(resp[j]), tokenizer, IGNORE_INDEX)
++            if len(item_nt["input_ids"]) > MAX_LEN:
++                truncated.append(idx * NGEN + j)
++            if sum(x != IGNORE_INDEX for x in item["labels"]) == 0:
++                raise RuntimeError(f"{short} row {idx*NGEN+j}: zero supervised tokens")
++            rows.append(item)
++    return rows, truncated
++
++
++def compute_row(model, item, device, prod_projector, prod_norm, s_r, s_h,
++                gradientproj, normalize_factor):
++    input_ids = torch.tensor(item["input_ids"], device=device).unsqueeze(0)
++    labels = torch.tensor(item["labels"], device=device).unsqueeze(0)
++    prod_row, prod2s_row = run_prod_pass(
++        model, input_ids, labels, prod_projector, prod_norm, s_r, s_h)
++    full_row = run_full_grad_pass(
++        model, input_ids, labels, False, gradientproj, normalize_factor,
++        ckpt_threshold=CKPT_THRESHOLD)
++    del input_ids, labels
++    return prod_row, prod2s_row, full_row
++
++
++def lm_head_grad_gate(model, item, device):
++    """Untied head => lm_head.weight.grad IS the head block; must equal
++    unprojected G from compute_prod_features (cos > 0.9999)."""
++    input_ids = torch.tensor(item["input_ids"], device=device).unsqueeze(0)
++    labels = torch.tensor(item["labels"], device=device).unsqueeze(0)
++    with torch.no_grad():
++        out = model(input_ids=input_ids, output_hidden_states=True)
++        G, _, n_sup = compute_prod_features(out.logits, out.hidden_states[-1], labels)
++        del out
++    torch.cuda.empty_cache()
++    out = model(input_ids=input_ids, labels=labels)
++    out.loss.backward()
++    head_grad = model.get_output_embeddings().weight.grad.detach().float()
++    cos = float(torch.sum(G * head_grad) /
++                (G.norm() * head_grad.norm()))
++    rel = float((G - head_grad).norm() / head_grad.norm())
++    model.zero_grad(set_to_none=True)
++    del out, G, head_grad, input_ids, labels
++    torch.cuda.empty_cache()
++    if cos < 0.9999:
++        raise RuntimeError(f"lm_head grad gate FAILED: cos={cos:.8f}, rel={rel:.2e}")
++    return {"cos": cos, "rel_l2": rel, "n_sup": n_sup}
++
++
++def parse_args():
++    ap = argparse.ArgumentParser(
++        description="GSM8K / OLMo-2-1B GRACE features (LESSER paper Table 12, row 2).")
++    ap.add_argument("--out-dir", required=True, help="where the feature pickles are written")
++    ap.add_argument("--data-dir", default=os.path.join(REPO, "data", "gsm8k_synthetic"),
++                    help="GSM8K teacher generations <short>.jsonl (512 prompts x 16 responses)")
++    ap.add_argument("--num-sms", type=int, default=128,
++                    help="SM count pinned for fast_jl (128 = the stored paper features)")
++    return ap.parse_args()
++
++
++def main():
++    args = parse_args()
++    OUT = args.out_dir
++    os.makedirs(OUT, exist_ok=True)
++    device = "cuda"
++    torch.manual_seed(0)
++
++    tokenizer = AutoTokenizer.from_pretrained(STUDENT)
++    model, gradientproj, normalize_factor, grad_dim = build_model(
++        student_pth=STUDENT, device=device, use_lora=False,
++        proj_dim=PROJ_DIM, dtype="auto")
++    model.eval()
++    if model.config.tie_word_embeddings:
++        raise RuntimeError("OLMo-2 student unexpectedly has TIED embeddings")
++    if next(model.parameters()).dtype != torch.float32:
++        raise RuntimeError("student not fp32")
++    print(f"[model] {STUDENT} fp32, grad_dim={grad_dim}, untied OK", flush=True)
++    prod_projector, prod_norm, s_r, s_h = build_prod_projector(model, PROJ_DIM, device)
++    set_projector_num_sms(gradientproj, args.num_sms)
++    set_projector_num_sms(prod_projector, args.num_sms)
++
++    meta_path = os.path.join(OUT, "featurize_meta.json")
++    meta = json.load(open(meta_path)) if os.path.exists(meta_path) else {
++        "student": STUDENT, "proj_dim": PROJ_DIM, "grad_dim": grad_dim,
++        "max_length": MAX_LEN, "ckpt_threshold": CKPT_THRESHOLD,
++        "tie_word_embeddings": False, "teachers": {}}
++
++    for ti, short in enumerate(TEACHERS):
++        full_path = os.path.join(OUT, f"Gradients_{short}.pkl")
++        prod_path = os.path.join(OUT, f"Prod_{short}.pkl")
++        prod2s_path = os.path.join(OUT, f"Prod_{short}_prod2s.pkl")
++        if all(os.path.exists(p) for p in (full_path, prod_path, prod2s_path)):
++            print(f"[skip] {short} done", flush=True)
++            continue
++        t0 = time.time()
++        rows, truncated = build_subset(short, tokenizer, args.data_dir)
++        n = len(rows)
++        assert n == NQ * NGEN
++        print(f"[{short}] subset rebuilt: {n} rows, truncated={truncated}", flush=True)
++
++        tmeta = {"truncated_rows": truncated}
++
++        if ti == 0 or "lm_head_grad_gate" not in meta:
++            g = lm_head_grad_gate(model, rows[0], device)
++            meta["lm_head_grad_gate"] = {"teacher": short, **g}
++            print(f"[gate] lm_head grad exactness: cos={g['cos']:.8f} "
++                  f"rel={g['rel_l2']:.2e}", flush=True)
++
++        # determinism gate
++        det = {}
++        for r in DET_ROWS:
++            a = compute_row(model, rows[r], device, prod_projector, prod_norm,
++                            s_r, s_h, gradientproj, normalize_factor)
++            b = compute_row(model, rows[r], device, prod_projector, prod_norm,
++                            s_r, s_h, gradientproj, normalize_factor)
++            ent = {}
++            for name, x, y in (("prod", a[0], b[0]), ("prod2s", a[1], b[1]),
++                               ("full", a[2], b[2])):
++                x = x.astype(np.float64)
++                y = y.astype(np.float64)
++                cos = float(np.dot(x, y) / (np.linalg.norm(x) * np.linalg.norm(y)))
++                rel = float(np.linalg.norm(x - y) / np.linalg.norm(y))
++                # rel L2 is the primary criterion (rel==0 => bitwise identical);
++                # fp32-accumulated cosine can read 0.99999994 on identical rows.
++                if rel > 1e-6:
++                    raise RuntimeError(
++                        f"{short} determinism gate FAILED row {r} {name}: "
++                        f"cos={cos}, rel={rel}")
++                ent[name] = {"cos": cos, "rel_l2": rel}
++            det[str(r)] = ent
++        tmeta["determinism_gate"] = det
++        print(f"[{short}] determinism gate passed rows {DET_ROWS}", flush=True)
++
++        # resume from partial checkpoint if present
++        part_path = os.path.join(OUT, f"{short}.partial.npz")
++        start = 0
++        prod_arr = np.zeros((n, PROJ_DIM), dtype=np.float32)
++        prod2s_arr = np.zeros((n, 512), dtype=np.float32)
++        full_arr = np.zeros((n, PROJ_DIM), dtype=np.float32)
++        if os.path.exists(part_path):
++            z = np.load(part_path)
++            start = int(z["count"])
++            prod_arr[:start] = z["prod"][:start]
++            prod2s_arr[:start] = z["prod2s"][:start]
++            full_arr[:start] = z["full"][:start]
++            print(f"[{short}] resuming at row {start}", flush=True)
++
++        for i in range(start, n):
++            p, p2, fu = compute_row(model, rows[i], device, prod_projector,
++                                    prod_norm, s_r, s_h, gradientproj,
++                                    normalize_factor)
++            prod_arr[i], prod2s_arr[i], full_arr[i] = p, p2, fu
++            if (i + 1) % 256 == 0 or i == n - 1:
++                np.savez(part_path, count=i + 1, prod=prod_arr,
++                         prod2s=prod2s_arr, full=full_arr)
++                el = time.time() - t0
++                done = i + 1 - start
++                print(f"[{short}] {i+1}/{n} rows, {el:.0f}s "
++                      f"({el/max(done,1):.2f} s/row)", flush=True)
++
++        save_pickle([full_arr[i] for i in range(n)], full_path, "full_grad", n, PROJ_DIM)
++        save_pickle([prod_arr[i] for i in range(n)], prod_path, "prod", n, PROJ_DIM)
++        save_pickle([prod2s_arr[i] for i in range(n)], prod2s_path, "prod2s", n, 512)
++        os.remove(part_path)
++        tmeta["seconds"] = time.time() - t0
++        meta["teachers"][short] = tmeta
++        with open(meta_path, "w") as f:
++            json.dump(meta, f, indent=2)
++        print(f"[{short}] DONE in {tmeta['seconds']:.0f}s", flush=True)
++
++    print("[all done]", flush=True)
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/scripts/generate_subset.py b/scripts/generate_subset.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..7cdf84929417eac0fce988b0879a71d58beb3d07
+--- /dev/null
++++ b/scripts/generate_subset.py
+@@ -0,0 +1,79 @@
++"""Precompute the deterministic 512-question GSM8K subsample.
++
++Exactly replicates the subsampling in data_generation/tokenize_data.py:
++    rng = random.Random(42); data = data[:]; rng.shuffle(data); data = data[:512]
++over the jsonl order of data/gsm8k/train.jsonl, and writes the selected items
++IN THAT SHUFFLED ORDER to data/gsm8k_512.jsonl.
++
++Why order matters: tokenize_data.py subsamples 4 responses per question with a
++per-question seed 13*example_idx + 13, where example_idx is the position AFTER
++the seed-42 shuffle. Writing the subset in shuffled order means running
++tokenize_data.py on teacher generations over gsm8k_512.jsonl WITHOUT
++--subsample-questions reproduces exactly what the original pipeline (teacher
++generation on all 7473 + --subsample-questions 512) would have produced, while
++generating 512 x 16 instead of 7473 x 16 responses.
++
++IMPORTANT: downstream tokenize_data.py calls must NOT pass --subsample-questions
++(that would re-shuffle the 512-item file with seed 42 and change the per-question
++response-subsample seeds). scripts/run_teacher.sh does this correctly.
++"""
++
++import argparse
++import json
++import os
++import random
++
++REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++
++
++def parse_args():
++    parser = argparse.ArgumentParser(description="Write the deterministic 512-question subsample.")
++    parser.add_argument(
++        "--input-path", type=str,
++        default=os.path.join(REPO_ROOT, "data", "gsm8k", "train.jsonl"),
++    )
++    parser.add_argument(
++        "--output-path", type=str,
++        default=os.path.join(REPO_ROOT, "data", "gsm8k_512.jsonl"),
++    )
++    parser.add_argument("--n-questions", type=int, default=512)
++    parser.add_argument("--seed", type=int, default=42)
++    return parser.parse_args()
++
++
++def main():
++    args = parse_args()
++
++    data = []
++    with open(args.input_path, "r", encoding="utf-8") as f:
++        for line in f:
++            line = line.strip()
++            if line:
++                data.append(json.loads(line))
++    print(f"Loaded {len(data)} items from {args.input_path}")
++    if len(data) < args.n_questions:
++        raise RuntimeError(f"Need at least {args.n_questions} items, got {len(data)}")
++
++    # Exact replication of tokenize_data.py lines 172-176.
++    rng = random.Random(args.seed)
++    data = data[:]
++    rng.shuffle(data)
++    subset = data[: args.n_questions]
++
++    if len(subset) != args.n_questions:
++        raise RuntimeError("Subset size mismatch")
++    for item in subset:
++        if "question" not in item:
++            raise RuntimeError(f"Item missing 'question' key: {sorted(item.keys())}")
++
++    with open(args.output_path, "w", encoding="utf-8") as f:
++        for item in subset:
++            f.write(json.dumps(item, ensure_ascii=False) + "\n")
++
++    idxs = [item.get("idx") for item in subset[:10]]
++    print(f"Wrote {len(subset)} items (shuffled order) to {args.output_path}")
++    print(f"Provenance: seed={args.seed}, first 10 original idx values: {idxs}")
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/scripts/math_gen_queue.sh b/scripts/math_gen_queue.sh
+new file mode 100644
+index 0000000000000000000000000000000000000000..a443751791e690ab6638185d54e07d7781e49da8
+--- /dev/null
++++ b/scripts/math_gen_queue.sh
+@@ -0,0 +1,36 @@
++#!/bin/bash
++# MATH-setting teacher generation.
++# data/math_512.jsonl (repo seed-42 subset convention) x 4 responses, T=0.6,
++# top_p 1.0, max_tokens 4096. vLLM caps for 24GB GPUs, as for the larger GSM8K
++# teachers: --max_model_len 4096 --max_num_seqs 64
++# --gpu_memory_utilization 0.85 (Gemma-9B / OLMo-2 need them; harmless elsewhere).
++# One sequential queue per GPU: bash scripts/math_gen_queue.sh <gpu> <hf>=<short> ...
++# Produces the MATH teacher responses behind LESSER paper Table 12, row 3.
++# GEN_PY: python with vLLM (default: python; the paper runs used vllm 0.11.0).
++set -u
++cd "$(dirname "${BASH_SOURCE[0]}")/.."
++PY="${GEN_PY:-python}"  # generation env (vllm)
++GPU=${1:?gpu id}; shift
++mkdir -p data/math_synthetic logs_gen
++for SPEC in "$@"; do
++  HF="${SPEC%%=*}"; T="${SPEC##*=}"
++  OUT="data/math_synthetic/${T}.jsonl"
++  if [ -s "$OUT" ]; then echo "[mq$GPU] skip $T (exists)"; continue; fi
++  echo "[mq$GPU] generating $T ..."
++  CUDA_VISIBLE_DEVICES=$GPU NCCL_P2P_DISABLE=1 NCCL_IB_DISABLE=1 \
++  $PY data_generation/generate_responses.py \
++    --model_path "$HF" \
++    --input_file data/math_512.jsonl \
++    --output_file "$OUT" \
++    --temperature 0.6 \
++    --top_p 1.0 \
++    --max_tokens 4096 \
++    --responses_per_question 4 \
++    --tensor_parallel_size 1 \
++    --gpu_memory_utilization 0.85 \
++    --max_model_len 4096 --max_num_seqs 64 \
++    > "logs_gen/math_${T}.log" 2>&1
++  rc=$?
++  echo "[mq$GPU] $T rc=$rc"
++done
++echo "[mq$GPU] QUEUE_DONE"
+diff --git a/scripts/math_subset_512.py b/scripts/math_subset_512.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..2ddfd570c2e426e427a56622abb9cb413d8c7617
+--- /dev/null
++++ b/scripts/math_subset_512.py
+@@ -0,0 +1,85 @@
++"""Deterministic 512-problem MATH subsample for the MATH setting
++(task=MATH, student=meta-llama/Llama-3.2-3B base).
++
++Source: data/math/train.jsonl (7500 rows, GRACE authors' initial commit; level
++distribution matches Hendrycks MATH train; disjoint from data/math/test.jsonl).
++NOTE: the authors' unique_id fields all carry a "test/..." path prefix in BOTH
++splits; we treat the repo files as ground truth and record unique_id verbatim.
++
++Convention: EXACTLY the repo's own subset convention (scripts/generate_subset.py
++== tokenize_data.py lines 172-176): rng = random.Random(42); shuffle the jsonl-
++order list; take the first 512; write IN SHUFFLED ORDER so that downstream
++tokenize_data.py WITHOUT --subsample-questions reproduces the per-question
++response-subsample seeds 13*example_idx + 13.
++
++generate_subset.py itself is not reused because it asserts a "question" key,
++while data/math uses "problem". This script replicates its logic and normalizes
++the schema to the gsm8k_synthetic convention:
++  question <- problem      (prompt text; generate_responses.py finds "question")
++  answer   <- solution     (full gold CoT with \\boxed{}, role-matching gsm8k's
++                            full solution; the short final answer is kept as
++                            answer_short)
++  idx      <- 0-based line index in data/math/train.jsonl
++Extra provenance fields kept: level, subject, unique_id, answer_short.
++NO SILENT FALLBACKS: every required key is asserted per item.
++"""
++
++import json
++import os
++import random
++
++REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++IN_PATH = os.path.join(REPO_ROOT, "data", "math", "train.jsonl")
++OUT_PATH = os.path.join(REPO_ROOT, "data", "math_512.jsonl")
++N_QUESTIONS = 512
++SEED = 42
++
++REQUIRED = ("problem", "solution", "answer", "level", "subject", "unique_id")
++
++
++def main():
++    data = []
++    with open(IN_PATH, "r", encoding="utf-8") as f:
++        for line_idx, line in enumerate(f):
++            line = line.strip()
++            if not line:
++                continue
++            item = json.loads(line)
++            for k in REQUIRED:
++                if k not in item:
++                    raise RuntimeError(f"line {line_idx}: missing key {k!r}; keys={sorted(item)}")
++            data.append({
++                "question": str(item["problem"]),
++                "answer": str(item["solution"]),
++                "answer_short": str(item["answer"]),
++                "level": item["level"],
++                "subject": item["subject"],
++                "unique_id": item["unique_id"],
++                "idx": line_idx,
++            })
++    print(f"Loaded {len(data)} items from {IN_PATH}")
++    if len(data) != 7500:
++        raise RuntimeError(f"expected 7500 MATH train items, got {len(data)}")
++
++    # Exact replication of tokenize_data.py lines 172-176 / generate_subset.py.
++    rng = random.Random(SEED)
++    data = data[:]
++    rng.shuffle(data)
++    subset = data[:N_QUESTIONS]
++    if len(subset) != N_QUESTIONS:
++        raise RuntimeError("subset size mismatch")
++    if len({it["idx"] for it in subset}) != N_QUESTIONS:
++        raise RuntimeError("duplicate idx in subset")
++
++    with open(OUT_PATH, "w", encoding="utf-8") as f:
++        for item in subset:
++            f.write(json.dumps(item, ensure_ascii=False) + "\n")
++
++    print(f"Wrote {len(subset)} items (shuffled order) to {OUT_PATH}")
++    print(f"Provenance: seed={SEED}, first 10 original line idx: {[it['idx'] for it in subset[:10]]}")
++    import collections
++    print("levels:", dict(collections.Counter(it["level"] for it in subset)))
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/scripts/math_tokenize_all.sh b/scripts/math_tokenize_all.sh
+new file mode 100644
+index 0000000000000000000000000000000000000000..f32ecceec3a82f46fb9b94ee17a28b6146dfe7c4
+--- /dev/null
++++ b/scripts/math_tokenize_all.sh
+@@ -0,0 +1,38 @@
++#!/bin/bash
++# Tokenize the MATH synthetic sets with the STUDENT tokenizer (meta-llama/Llama-3.2-3B).
++# Mirrors run_teacher.sh stage post 1/3: NO --subsample-questions
++# (data/math_512.jsonl is already the seed-42 subsample in shuffled order);
++# --subsample-responses 4 keeps the per-question response seed convention
++# random.Random(13*example_idx + 13) (a reorder when exactly 4 gens exist).
++# Usage: bash scripts/math_tokenize_all.sh <short> [<short> ...]
++# FEAT_PY: python with datasets/transformers (default: .venv/bin/python).
++set -euo pipefail
++cd "$(dirname "${BASH_SOURCE[0]}")/.."
++VENV_PY="${FEAT_PY:-.venv/bin/python}"
++mkdir -p logs_gen
++STUDENT=meta-llama/Llama-3.2-3B
++mkdir -p grace_data/math_synthetic
++for T in "$@"; do
++  IN="data/math_synthetic/${T}.jsonl"
++  OUT="grace_data/math_synthetic/${T}.hf"
++  if [ -d "$OUT" ]; then echo "[tok] skip $T (exists)"; continue; fi
++  if [ ! -s "$IN" ]; then echo "[tok] ERROR: $IN missing" >&2; exit 1; fi
++  echo "[tok] $T ..."
++  TOKENIZERS_PARALLELISM=false $VENV_PY data_generation/tokenize_data.py \
++    --input-path "$IN" \
++    --output-path "$OUT" \
++    --tokenizer-path "$STUDENT" \
++    --subsample-responses 4 \
++    > "logs_gen/math_tok_${T}.log" 2>&1
++  n=$($VENV_PY - "$OUT" <<'EOF'
++import sys
++from datasets import load_from_disk
++d = load_from_disk(sys.argv[1])
++assert len(d) == 2048, f"{len(d)} rows != 2048"
++assert set(["input_ids","labels","question_index","response_index"]).issubset(d.column_names), d.column_names
++print(len(d))
++EOF
++)
++  echo "[tok] $T OK ($n rows)"
++done
++echo "[tok] ALL DONE"
+diff --git a/scripts/memory_probe_both.py b/scripts/memory_probe_both.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..73c68b309803768809f407f7159956cc32bf210d
+--- /dev/null
++++ b/scripts/memory_probe_both.py
+@@ -0,0 +1,174 @@
++"""Memory probe for the 'both'-mode per-example path (two passes per example to fit 24GB GPUs).
++
++Runs synthetic examples with exactly 2048 supervised shifted tokens (seq_len
++2049, all labels supervised) through the REAL two-pass both-mode path:
++  pass (a) run_prod_pass       — no_grad forward + chunked prod/prod2s features
++  pass (b) run_full_grad_pass  — original fp32 forward + loss.backward()
++on the fp32 student (Llama-3.2-1B), using the same build_model /
++build_prod_projector construction as GRACE/gradient_computation.py.
++
++Gate: torch.cuda.max_memory_allocated() must stay under 20 GiB across all
++iterations. Exit code 0 on PASS, 1 on FAIL.
++
++Also verifies the long-example gradient-checkpointing divergence (see
++gradient_computation.py header): on a T=1024 example it computes the projected
++full-grad row with and without checkpointing forced and requires relative L2
++difference < 1e-4 (10x tighter than the 1e-3 tolerance of scripts/sanity_prod_gate.py).
++The difference is NOT expected to be bitwise zero: checkpoint recompute may
++select different, equally valid fp32 kernels (measured rel L2 ~5e-6).
++
++Run (venv): PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
++    .venv/bin/python scripts/memory_probe_both.py --device cuda:0
++"""
++
++import argparse
++import os
++import sys
++
++import numpy as np
++import torch
++
++REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++sys.path.insert(0, os.path.join(REPO_ROOT, "GRACE"))
++
++from gradient_computation import (  # noqa: E402
++    PROD2S_H_DIM,
++    PROD2S_R_DIM,
++    build_model,
++    build_prod_projector,
++    run_full_grad_pass,
++    run_prod_pass,
++)
++
++LIMIT_GIB = 20.0
++
++
++def parse_args():
++    parser = argparse.ArgumentParser(description="Memory probe for the both-mode path.")
++    parser.add_argument("--model", type=str, default="meta-llama/Llama-3.2-1B")
++    parser.add_argument("--device", type=str, default="cuda:0")
++    parser.add_argument(
++        "--n-sup", type=int, default=2048,
++        help="Number of supervised shifted tokens (seq_len = n_sup + 1).",
++    )
++    parser.add_argument("--iters", type=int, default=3)
++    parser.add_argument("--proj-dim", type=int, default=512)
++    parser.add_argument(
++        "--skip-ckpt-equivalence", action="store_true",
++        help="Skip the gradient-checkpointing numeric-equivalence check.",
++    )
++    return parser.parse_args()
++
++
++# Checkpoint recompute may pick different fp32 kernels, so the projected rows
++# differ at fp32 epsilon level (measured ~5e-6 rel L2), never bitwise. 1e-4 is
++# 10x tighter than the 1e-3 fp32 exactness tolerance of sanity_prod_gate.py.
++CKPT_EQUIV_REL_TOL = 1e-4
++
++
++def check_ckpt_equivalence(model, gradientproj, normalize_factor, device, vocab_size):
++    """Projected full-grad row must be fp32-machine-precision identical with and
++    without gradient checkpointing (the long-example path)."""
++    gen = torch.Generator(device="cpu")
++    gen.manual_seed(1)
++    seq_len = 1024
++    input_ids = torch.randint(0, vocab_size, (1, seq_len), generator=gen).to(device)
++    labels = input_ids.clone()
++
++    row_plain = run_full_grad_pass(
++        model, input_ids, labels, False, gradientproj, normalize_factor
++    )
++    row_ckpt = run_full_grad_pass(
++        model, input_ids, labels, False, gradientproj, normalize_factor,
++        ckpt_threshold=0,  # force the checkpointed path
++    )
++    denom = float(np.linalg.norm(row_plain))
++    if denom == 0.0:
++        raise RuntimeError("ckpt-equivalence: plain row has zero norm; degenerate probe.")
++    rel = float(np.linalg.norm(row_ckpt - row_plain)) / denom
++    print(f"ckpt-equivalence (T={seq_len}): rel L2 diff = {rel:.3e} (tol {CKPT_EQUIV_REL_TOL:.0e})")
++    if rel >= CKPT_EQUIV_REL_TOL:
++        raise RuntimeError(
++            f"ckpt-equivalence FAILED: rel L2 diff {rel:.3e} >= {CKPT_EQUIV_REL_TOL:.0e}"
++        )
++    del input_ids, labels
++    torch.cuda.empty_cache()
++
++
++def main():
++    args = parse_args()
++    device = torch.device(args.device)
++    if device.type != "cuda":
++        raise ValueError("Memory probe requires a CUDA device.")
++    # fast_jl launches kernels on the CURRENT device; with tensors on cuda:N and
++    # current device cuda:0 it hits an illegal memory access. The pipeline always
++    # runs under CUDA_VISIBLE_DEVICES (so cuda:0); make the probe match any --device.
++    torch.cuda.set_device(device)
++
++    print(f"Loading fp32 student from: {args.model} on {args.device}")
++    model, gradientproj, normalize_factor, grad_dim = build_model(
++        student_pth=args.model,
++        device=args.device,
++        use_lora=False,
++        proj_dim=args.proj_dim,
++        dtype="float32",
++    )
++    model.train(False)
++    print(f"full grad_dim: {grad_dim}")
++
++    param_dtypes = {p.dtype for p in model.parameters()}
++    if param_dtypes != {torch.float32}:
++        raise RuntimeError(f"fp32 protocol violated: param dtypes {param_dtypes}")
++
++    prod_projector, prod_normalize_factor, s_r, s_h = build_prod_projector(
++        model, args.proj_dim, device
++    )
++
++    vocab_size = model.get_output_embeddings().weight.shape[0]
++
++    if not args.skip_ckpt_equivalence:
++        check_ckpt_equivalence(model, gradientproj, normalize_factor, device, vocab_size)
++
++    seq_len = args.n_sup + 1  # HF shift: seq_len-1 supervised positions
++    gen = torch.Generator(device="cpu")
++    gen.manual_seed(0)
++    input_ids = torch.randint(0, vocab_size, (1, seq_len), generator=gen).to(device)
++    labels = input_ids.clone()
++
++    torch.cuda.synchronize(device)
++    torch.cuda.reset_peak_memory_stats(device)
++    base_gib = torch.cuda.memory_allocated(device) / 2**30
++    print(f"baseline allocated (model + projectors): {base_gib:.2f} GiB")
++    print(f"synthetic example: seq_len={seq_len}, n_sup={args.n_sup}")
++
++    for it in range(args.iters):
++        prod_row, prod2s_row = run_prod_pass(
++            model, input_ids, labels, prod_projector, prod_normalize_factor, s_r, s_h
++        )
++        full_row = run_full_grad_pass(
++            model, input_ids, labels, False, gradientproj, normalize_factor
++        )
++
++        # The probe must exercise the real path end-to-end, not just not-crash.
++        if prod_row.shape != (args.proj_dim,) or not np.isfinite(prod_row).all():
++            raise RuntimeError(f"prod row bad: shape={prod_row.shape}")
++        if prod2s_row.shape != (PROD2S_R_DIM * PROD2S_H_DIM,) or not np.isfinite(prod2s_row).all():
++            raise RuntimeError(f"prod2s row bad: shape={prod2s_row.shape}")
++        if full_row.shape != (args.proj_dim,) or not np.isfinite(full_row).all():
++            raise RuntimeError(f"full-grad row bad: shape={full_row.shape}")
++
++        torch.cuda.synchronize(device)
++        peak_gib = torch.cuda.max_memory_allocated(device) / 2**30
++        print(f"iter {it}: peak allocated so far = {peak_gib:.2f} GiB")
++
++    peak_gib = torch.cuda.max_memory_allocated(device) / 2**30
++    print(f"\nFINAL peak allocated: {peak_gib:.2f} GiB (limit {LIMIT_GIB:.1f} GiB)")
++    if peak_gib >= LIMIT_GIB:
++        print("MEMORY PROBE FAIL")
++        sys.exit(1)
++    print("MEMORY PROBE PASS")
++    sys.exit(0)
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/scripts/run_teacher.sh b/scripts/run_teacher.sh
+new file mode 100755
+index 0000000000000000000000000000000000000000..ff22b8c75280d7409f3aff16a531bdf2218864f8
+--- /dev/null
++++ b/scripts/run_teacher.sh
+@@ -0,0 +1,169 @@
++#!/usr/bin/env bash
++# Forward-GRACE teacher pipeline.
++# Produces the GSM8K / Llama-3.2-1B features and scores behind LESSER paper Table 12, row 1.
++#
++# Usage: bash scripts/run_teacher.sh <teacher_hf_id> <short_name> <gpu_index> [stage]
++#   stage: all  (default) = gen + post
++#          gen             = vLLM teacher generation only
++#          post            = tokenize -> gradients (--feature both) -> GRACE scores
++#
++# Environment (interpreters are configurable, defaults below):
++#   GEN_PY          python with vLLM, used for generation only (default: python).
++#                   The paper runs used vllm 0.11.0 for the original ten teachers.
++#   FEAT_PY         python for tokenize/gradients/scoring (default: $REPO/.venv/bin/python,
++#                   built by scripts/setup_venv.sh: torch 2.6.0, transformers 4.51.1,
++#                   traker 0.3.2, fast-jl 0.1.3 built from source).
++#   NUM_SMS         SM count pinned for fast_jl (default 128, the value behind the stored
++#                   paper features; see the header of GRACE/gradient_computation.py).
++#   GEN_EXTRA_ARGS  extra generate_responses.py arguments, e.g. the vLLM memory caps
++#                   "--max_model_len 8192 --max_num_seqs 64" (default: none).
++#
++# Pipeline notes:
++#   - Generation runs on data/gsm8k_512.jsonl (the deterministic seed-42 subsample in
++#     shuffled order; see scripts/generate_subset.py), n=16 responses, temp 0.6,
++#     max_tokens 4096, the repo's chat-template prompt with the boxed instruction.
++#   - tokenize_data.py intentionally does NOT pass --subsample-questions (the 512-file
++#     is already the subsample in the order tokenize_data would have produced); it DOES
++#     pass --subsample-responses 4 so per-question response picks match the original
++#     seeds 13*idx+13.
++#   - gradient_computation.py --feature both writes three pickles with identical row
++#     order: full-grad, prod, prod2s. GRACE_computation.py is feature-agnostic and is
++#     run on each; scores are appended to results_grace/scores.jsonl.
++#   - The student is loaded in float32 explicitly. The paper runs used the default
++#     --dtype auto, which is float32 under transformers 4.51.1; newer transformers
++#     releases may resolve auto to the bf16 checkpoint dtype instead.
++
++set -euo pipefail
++
++if [[ $# -lt 3 ]]; then
++    echo "Usage: bash scripts/run_teacher.sh <teacher_hf_id> <short_name> <gpu_index> [all|gen|post]" >&2
++    exit 1
++fi
++
++TEACHER="$1"
++SHORT="$2"
++GPU="$3"
++STAGE="${4:-all}"
++
++REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
++cd "$REPO"
++
++GEN_PY="${GEN_PY:-python}"
++FEAT_PY="${FEAT_PY:-$REPO/.venv/bin/python}"
++NUM_SMS="${NUM_SMS:-128}"
++GEN_EXTRA_ARGS="${GEN_EXTRA_ARGS:-}"
++
++STUDENT=meta-llama/Llama-3.2-1B
++PROJ_DIM=512
++N_GEN_PER_PROMPT=4
++
++SUBSET=data/gsm8k_512.jsonl
++SYN=data/gsm8k_synthetic/${SHORT}.jsonl
++HF_DATA=grace_data/gsm8k_synthetic/${SHORT}.hf
++FULL_PKL=grace_data/gsm8k_synthetic/Gradients_${SHORT}.pkl
++PROD_PKL=grace_data/gsm8k_synthetic/Prod_${SHORT}.pkl
++PROD2S_PKL=grace_data/gsm8k_synthetic/Prod_${SHORT}_prod2s.pkl
++SCORES=results_grace/scores.jsonl
++
++mkdir -p data/gsm8k_synthetic grace_data/gsm8k_synthetic results_grace logs_gen
++
++export CUDA_VISIBLE_DEVICES="$GPU"
++export NCCL_P2P_DISABLE=1
++export NCCL_IB_DISABLE=1
++export TOKENIZERS_PARALLELISM=false
++
++echo "[run_teacher] teacher=$TEACHER short=$SHORT gpu=$GPU stage=$STAGE"
++
++if [[ "$STAGE" == "all" || "$STAGE" == "gen" ]]; then
++    if [[ ! -f "$SUBSET" ]]; then
++        echo "[run_teacher] ERROR: $SUBSET missing; run scripts/generate_subset.py first." >&2
++        exit 1
++    fi
++    echo "[run_teacher] === Stage gen: vLLM generation ($TEACHER) ==="
++    # shellcheck disable=SC2086  # GEN_EXTRA_ARGS is a list of CLI arguments
++    "$GEN_PY" data_generation/generate_responses.py \
++        --model_path "$TEACHER" \
++        --input_file "$SUBSET" \
++        --output_file "$SYN" \
++        --temperature 0.6 \
++        --top_p 1.0 \
++        --max_tokens 4096 \
++        --responses_per_question 16 \
++        --tensor_parallel_size 1 \
++        --gpu_memory_utilization 0.85 \
++        $GEN_EXTRA_ARGS
++        # 0.85 not 0.9: vLLM 0.11 sampler warmup (256 dummy seqs, vocab sort) OOMs
++        # at 0.9 on a 24GB RTX 4090 (observed with Qwen2.5-Math-1.5B-Instruct).
++fi
++
++if [[ "$STAGE" == "all" || "$STAGE" == "post" ]]; then
++    if [[ ! -f "$SYN" ]]; then
++        echo "[run_teacher] ERROR: $SYN missing; run the gen stage first." >&2
++        exit 1
++    fi
++    if ! command -v "$FEAT_PY" > /dev/null; then
++        echo "[run_teacher] ERROR: FEAT_PY=$FEAT_PY not found; run scripts/setup_venv.sh or set FEAT_PY." >&2
++        exit 1
++    fi
++
++    # Fp32 full-grad backward + prod pass fragment the allocator on 24GB cards;
++    # expandable segments avoid the reserved-but-unallocated OOMs.
++    export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
++
++    echo "[run_teacher] === Stage post 1/3: tokenize ==="
++    # NOTE: deliberately NO --subsample-questions (see header).
++    "$FEAT_PY" data_generation/tokenize_data.py \
++        --input-path "$SYN" \
++        --output-path "$HF_DATA" \
++        --tokenizer-path "$STUDENT" \
++        --subsample-responses "$N_GEN_PER_PROMPT"
++
++    echo "[run_teacher] === Stage post 2/3: gradients + prod features ==="
++    "$FEAT_PY" GRACE/gradient_computation.py \
++        --model "$STUDENT" \
++        --data-path "$HF_DATA" \
++        --output-path "$FULL_PKL" \
++        --feature both \
++        --prod-output-path "$PROD_PKL" \
++        --proj-dim "$PROJ_DIM" \
++        --dtype float32 \
++        --num-sms "$NUM_SMS" \
++        --device cuda
++
++    echo "[run_teacher] === Stage post 3/3: GRACE scores ==="
++    score_of () {
++        local pkl="$1"
++        "$FEAT_PY" GRACE/GRACE_computation.py \
++            --gradients-path "$pkl" \
++            --dim "$PROJ_DIM" \
++            --n-gen-per-prompt "$N_GEN_PER_PROMPT" \
++            | tee /dev/stderr | grep "GRACE score:" | awk '{print $3}'
++    }
++    grace_full=$(score_of "$FULL_PKL")
++    grace_prod=$(score_of "$PROD_PKL")
++    grace_prod2s=$(score_of "$PROD2S_PKL")
++
++    for v in grace_full grace_prod grace_prod2s; do
++        if [[ -z "${!v}" ]]; then
++            echo "[run_teacher] ERROR: $v is empty; scoring failed." >&2
++            exit 1
++        fi
++    done
++
++    TEACHER="$TEACHER" SHORT="$SHORT" GF="$grace_full" GP="$grace_prod" GP2="$grace_prod2s" SCORES="$SCORES" \
++    "$FEAT_PY" - <<'EOF'
++import json, os
++row = {
++    "teacher": os.environ["TEACHER"],
++    "short": os.environ["SHORT"],
++    "grace_full": float(os.environ["GF"]),
++    "grace_prod": float(os.environ["GP"]),
++    "grace_prod2s": float(os.environ["GP2"]),
++}
++with open(os.environ["SCORES"], "a", encoding="utf-8") as f:
++    f.write(json.dumps(row) + "\n")
++print("[run_teacher] appended:", row)
++EOF
++fi
++
++echo "[run_teacher] done: $SHORT ($STAGE)"
+diff --git a/scripts/sanity_prod_gate.py b/scripts/sanity_prod_gate.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..f65e76755020c4b207ee0cf19147dadd9d42b6f4
+--- /dev/null
++++ b/scripts/sanity_prod_gate.py
+@@ -0,0 +1,165 @@
++"""Exactness gate for the forward-GRACE 'prod' feature.
++
++Checks, on 5 short GSM8K examples with the student model (Llama-3.2-1B), that the
++forward-computed G = (1/n_sup) * R^T H from GRACE/gradient_computation.py's
++compute_prod_G equals the autograd gradient of the HF mean-CE loss w.r.t.
++lm_head.weight.
++
++CAVEAT handled here: Llama-3.2-1B TIES input and output embeddings
++(tie_word_embeddings=True), so param-level autograd of the shared matrix would
++include the input-embedding term. We therefore compute the autograd reference on
++a FRESH UNTIED copy: model.get_output_embeddings() is replaced by a cloned
++nn.Linear so lm_head.weight is a distinct leaf whose .grad contains ONLY the
++head term. This also validates HF's shift/mask/mean-reduction conventions
++against ours, since the loss is still computed by the HF model path.
++
++The model is loaded in float32 so the comparison is a genuine exactness test
++(bf16 forward noise would swamp the 1e-3 gate).
++
++Gate: relative Frobenius error ||G - grad||_F / ||grad||_F < 1e-3 on all 5
++examples. Exit code 0 on PASS, 1 on FAIL.
++
++Run (venv): .venv/bin/python scripts/sanity_prod_gate.py --device cuda:0
++"""
++
++import argparse
++import json
++import os
++import sys
++
++import torch
++import torch.nn as nn
++from transformers import AutoModelForCausalLM, AutoTokenizer
++
++REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++sys.path.insert(0, os.path.join(REPO_ROOT, "GRACE"))
++sys.path.insert(0, os.path.join(REPO_ROOT, "data_generation"))
++
++from gradient_computation import compute_prod_G  # noqa: E402
++from tokenize_data import build_example  # noqa: E402
++
++GATE_REL_ERR = 1e-3
++
++
++def parse_args():
++    parser = argparse.ArgumentParser(description="Exactness gate for the prod feature.")
++    parser.add_argument("--model", type=str, default="meta-llama/Llama-3.2-1B")
++    parser.add_argument("--device", type=str, default="cuda:0")
++    parser.add_argument(
++        "--data-path",
++        type=str,
++        default=os.path.join(REPO_ROOT, "data", "gsm8k", "train.jsonl"),
++    )
++    parser.add_argument("--n-examples", type=int, default=5)
++    return parser.parse_args()
++
++
++def load_short_examples(path: str, n: int):
++    """Take the n shortest (question+answer) items from the jsonl for a fast fp32 gate."""
++    items = []
++    with open(path, "r", encoding="utf-8") as f:
++        for line in f:
++            line = line.strip()
++            if line:
++                items.append(json.loads(line))
++    if len(items) < n:
++        raise RuntimeError(f"Only {len(items)} items in {path}, need {n}")
++    items.sort(key=lambda x: len(x["question"]) + len(x["answer"]))
++    return items[:n]
++
++
++def untie_lm_head(model: nn.Module) -> nn.Module:
++    """Replace the (tied) output embedding with a cloned nn.Linear leaf."""
++    old = model.get_output_embeddings()
++    if old is None:
++        raise RuntimeError("Model has no output embeddings; cannot untie.")
++    new = nn.Linear(old.in_features, old.out_features, bias=False)
++    new.weight = nn.Parameter(old.weight.detach().clone())
++    new = new.to(device=old.weight.device, dtype=old.weight.dtype)
++    model.set_output_embeddings(new)
++    model.config.tie_word_embeddings = False
++
++    in_ptr = model.get_input_embeddings().weight.data_ptr()
++    out_ptr = model.get_output_embeddings().weight.data_ptr()
++    if in_ptr == out_ptr:
++        raise RuntimeError("Untying failed: input and output embeddings still share storage.")
++    return model
++
++
++def main():
++    args = parse_args()
++    device = torch.device(args.device)
++
++    print(f"Loading tokenizer + model (float32) from: {args.model}")
++    tokenizer = AutoTokenizer.from_pretrained(args.model)
++    model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch.float32)
++    model = model.to(device)
++    model = untie_lm_head(model)
++    model.train(False)
++
++    tied_check = model.get_output_embeddings().weight
++    print(f"Untied lm_head: shape={tuple(tied_check.shape)}, dtype={tied_check.dtype}")
++
++    examples = load_short_examples(args.data_path, args.n_examples)
++
++    rows = []
++    all_pass = True
++    for i, ex in enumerate(examples):
++        item = build_example(
++            problem=ex["question"],
++            solution=ex["answer"],
++            tokenizer=tokenizer,
++            ignore_index=-100,
++            max_length=None,
++        )
++        input_ids = torch.tensor(item["input_ids"], device=device).unsqueeze(0)
++        labels = torch.tensor(item["labels"], device=device).unsqueeze(0)
++        n_sup = int((labels != -100).sum().item())
++
++        model.zero_grad(set_to_none=True)
++        outputs = model(input_ids=input_ids, labels=labels, output_hidden_states=True)
++        outputs.loss.backward()
++
++        grad_ref = model.get_output_embeddings().weight.grad
++        if grad_ref is None:
++            raise RuntimeError("Autograd reference is None; lm_head is not a leaf with grad.")
++        grad_ref = grad_ref.detach().float()
++
++        # Sanity: input-embedding grad must be a SEPARATE tensor (untied worked).
++        emb_grad = model.get_input_embeddings().weight.grad
++        if emb_grad is None:
++            raise RuntimeError("Input embedding got no grad; forward graph looks wrong.")
++        if emb_grad.data_ptr() == grad_ref.data_ptr():
++            raise RuntimeError("Input and output embedding grads share storage; untying failed.")
++
++        G = compute_prod_G(
++            outputs.logits.detach(),
++            outputs.hidden_states[-1].detach(),
++            labels,
++        )
++
++        ref_norm = grad_ref.norm().item()
++        if ref_norm == 0.0:
++            raise RuntimeError("Autograd reference has zero norm; degenerate example.")
++        rel_err = (G - grad_ref).norm().item() / ref_norm
++        ok = rel_err < GATE_REL_ERR
++        all_pass = all_pass and ok
++        rows.append((i, input_ids.shape[1], n_sup, outputs.loss.item(), rel_err, ok))
++
++        del outputs, G, grad_ref
++        model.zero_grad(set_to_none=True)
++
++    print()
++    print(f"{'ex':>3} {'T':>5} {'n_sup':>6} {'loss':>10} {'rel_frob_err':>14} {'pass':>6}")
++    for i, t, n_sup, loss, rel_err, ok in rows:
++        print(f"{i:>3} {t:>5} {n_sup:>6} {loss:>10.4f} {rel_err:>14.3e} {str(ok):>6}")
++    print()
++    if all_pass:
++        print(f"GATE PASS: all {len(rows)} examples have rel Frobenius error < {GATE_REL_ERR}")
++        sys.exit(0)
++    print(f"GATE FAIL: at least one example has rel Frobenius error >= {GATE_REL_ERR}")
++    sys.exit(1)
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/scripts/setup_venv.sh b/scripts/setup_venv.sh
+new file mode 100755
+index 0000000000000000000000000000000000000000..f92df0bcfe4edf020fec47027a6d76df5e5d67e2
+--- /dev/null
++++ b/scripts/setup_venv.sh
+@@ -0,0 +1,106 @@
++#!/usr/bin/env bash
++# Reproducible env setup for the patched GRACE pipeline.
++#
++# WHY THIS EXISTS:
++#   Gradient extraction needs trak's CudaProjector with the fast_jl CUDA extension,
++#   which has to be built from source. So gradient/GRACE steps run in a dedicated
++#   venv at .venv with grace.yml pins where feasible.
++#
++# DIVERGENCES FROM grace.yml (with rationale):
++#   - python 3.11 (from a conda installation) instead of 3.10: a system python3.10
++#     often lacks ensurepip, and grace.yml's remaining pins all support 3.11.
++#   - vllm is NOT installed here: teacher generation runs in a separate environment
++#     with vLLM (vllm 0.11.0 for the paper runs; scripts/run_teacher.sh stage `gen`).
++#     fast_jl is not needed for generation.
++#   - flash-attn is NOT installed (not needed for batch-size-1 gradient extraction).
++#   - fast-jl 0.1.3 is built from a patched sdist: TORCH_CUDA_ARCH_LIST 7.0+PTX -> 8.9
++#     (native RTX 4090; set FAST_JL_CUDA_ARCH for other GPUs, e.g. 8.0 for A100 or
++#     9.0 for H100) and torch's -D__CUDA_NO_HALF_* defines dropped from
++#     COMMON_NVCC_FLAGS. Built against a self-contained CUDA 12.4.131 toolchain at
++#     .cuda124 (conda prefix env; an nvcc 12.9 failed to compile fast_jl with its CCCL
++#     headers, and torch 2.6.0 wheels are cu124).
++#   - Math-library headers (cusparse/cublas/...) come from the pip nvidia-*-cu12 wheels
++#     already pulled in by torch 2.6.0+cu124, exposed via CPATH at build time only.
++#
++# NOTE: fast_jl accepts only fp16/fp32 inputs. The repo's default --dtype auto loads
++# the student in fp32, so both the full-grad and prod paths feed fp32.
++#
++# Machine-specific paths are environment variables.
++#   CONDA_BASE         conda installation that provides python3.11 and the CUDA 12.4
++#                      toolchain packages (default: `conda info --base`).
++#   PYTHON311          interpreter for the venv (default: $CONDA_BASE/bin/python3.11).
++#   FAST_JL_CUDA_ARCH  TORCH_CUDA_ARCH_LIST used to build fast_jl (default: 8.9).
++
++set -euo pipefail
++REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
++cd "$REPO"
++
++CONDA_BASE="${CONDA_BASE:-$(conda info --base)}"
++PYTHON311="${PYTHON311:-$CONDA_BASE/bin/python3.11}"
++export FAST_JL_CUDA_ARCH="${FAST_JL_CUDA_ARCH:-8.9}"
++
++# 1) venv + pinned python deps
++"$PYTHON311" -m venv .venv
++.venv/bin/python -m pip install --upgrade pip
++.venv/bin/pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu124
++.venv/bin/pip install numpy==2.2.6 transformers==4.51.1 datasets==4.1.1 \
++    accelerate==1.10.1 tokenizers==0.21.4 safetensors sentencepiece tqdm \
++    traker==0.3.2 wheel setuptools ninja
++
++# 2) self-contained CUDA 12.4 toolchain in a conda prefix inside the checkout
++"$CONDA_BASE/bin/conda" create -y -p "$REPO/.cuda124" \
++    -c "nvidia/label/cuda-12.4.1" cuda-nvcc cuda-cudart-dev cuda-cccl
++
++# 3) fast-jl 0.1.3 from patched sdist
++BUILD="$(mktemp -d)"
++mkdir -p "$BUILD" && cd "$BUILD"
++curl -sLO https://files.pythonhosted.org/packages/b3/89/c3251ac89c2d79dbb5bbc64817d6d9349feddfbc4f2d78147f823f9881bc/fast_jl-0.1.3.tar.gz
++tar xzf fast_jl-0.1.3.tar.gz
++cd fast_jl-0.1.3
++"$REPO/.venv/bin/python" - <<'EOF'
++import os
++content = open('setup.py').read()
++old = """environ['TORCH_CUDA_ARCH_LIST']="7.0+PTX"
++
++from setuptools import setup
++from torch.utils.cpp_extension import BuildExtension, CUDAExtension"""
++new = """environ['TORCH_CUDA_ARCH_LIST'] = "@FAST_JL_CUDA_ARCH@"
++
++from setuptools import setup
++# nvcc CCCL headers break with torch's -D__CUDA_NO_HALF_* defines here; fast_jl
++# does not rely on implicit half conversions, so drop the defines.
++import torch.utils.cpp_extension as _cpp_ext
++_cpp_ext.COMMON_NVCC_FLAGS = [
++    f for f in _cpp_ext.COMMON_NVCC_FLAGS if not f.startswith('-D__CUDA_NO_')
++]
++from torch.utils.cpp_extension import BuildExtension, CUDAExtension"""
++assert old in content, "fast_jl setup.py changed upstream; re-derive the patch"
++new = new.replace("@FAST_JL_CUDA_ARCH@", os.environ["FAST_JL_CUDA_ARCH"])
++open('setup.py','w').write(content.replace(old, new))
++print("patched setup.py")
++EOF
++
++export CUDA_HOME="$REPO/.cuda124"
++export PATH="$CUDA_HOME/bin:$PATH"
++SP="$REPO/.venv/lib/python3.11/site-packages/nvidia"
++export CPATH="$SP/cusparse/include:$SP/cublas/include:$SP/cusolver/include:$SP/curand/include:$SP/cufft/include:$SP/cudnn/include:$SP/nvtx/include:$SP/nccl/include"
++export MAX_JOBS=8
++"$REPO/.venv/bin/pip" install . --no-build-isolation
++
++# 4) smoke test at the real dims used by the pipeline
++cd "$REPO"
++.venv/bin/python - <<'EOF'
++import torch
++from trak.projectors import CudaProjector, ProjectionType
++for grad_dim in (262668288, 1235814400):  # prod V*d and full-model Llama-3.2-1B
++    p = CudaProjector(grad_dim=grad_dim, proj_dim=512, seed=0,
++                      proj_type=ProjectionType.rademacher, device="cuda:0",
++                      dtype=torch.bfloat16, block_size=4, max_batch_size=8)
++    x = torch.randn(1, grad_dim, device="cuda:0", dtype=torch.float32)
++    y = p.project(x, model_id=0)
++    assert y.shape == (1, 512) and torch.isfinite(y.float()).all()
++    print(f"grad_dim={grad_dim}: projection OK")
++    del p, x, y
++    torch.cuda.empty_cache()
++EOF
++echo "setup_venv.sh: done"

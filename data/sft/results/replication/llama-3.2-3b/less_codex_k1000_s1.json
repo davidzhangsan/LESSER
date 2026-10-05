@@ -1,0 +1,9 @@
+{
+ "model": "meta-llama/Llama-3.2-3B",
+ "method": "less",
+ "task": "codex",
+ "seed": 1,
+ "budget": 1000,
+ "score": 54.729729729729726,
+ "selection": "nayak_exact"
+}

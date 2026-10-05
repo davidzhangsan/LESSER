@@ -1,0 +1,9 @@
+{
+ "model": "meta-llama/Llama-3.2-3B",
+ "method": "random",
+ "task": "tydiqa",
+ "seed": 0,
+ "budget": 1000,
+ "score": 50.3886039950507,
+ "selection": "rng0"
+}

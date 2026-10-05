@@ -1,0 +1,1 @@
+{"task": "codex", "bin": 4, "ce_loss": 0.8348354399204254, "n_dev": 16, "model": "allenai/Olmo-3-1025-7B", "convention": "mean over dev queries of construct_test_sample CE", "env": "cluster; vllm/vllm-openai:v0.11.0 image with transformers 4.57.1", "seconds": 1400}

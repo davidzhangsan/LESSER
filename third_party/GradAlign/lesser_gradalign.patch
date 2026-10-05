@@ -1,0 +1,1471 @@
+diff --git a/automated/config.py b/automated/config.py
+index a861ccf..8c992df 100755
+--- a/automated/config.py
++++ b/automated/config.py
+@@ -2,15 +2,23 @@
+ Centralized configuration for model paths and common constants.
+ 
+ Users should update `MODELS` to reflect their local/remote model store.
++
++env: single-node adaptation: data and response directories live under the
++GradAlign checkout (data_local/). Hugging Face hub ids are accepted as model paths.
+ """
+ 
++import os
+ from typing import Dict
+ 
+ 
+-# Map a short, stable model key to its absolute model path.
+-# Update these paths to match your environment.
++# Repo root: the GradAlign clone (this file lives in automated/)
++_REPO_ROOT: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++
++
++# Map a short, stable model key to its model path (local dir or HF hub id).
+ MODELS: Dict[str, str] = {
+-    # MODEL NAME: MODEL PATH
++    "qwen2.5-1.5b-math": "Qwen/Qwen2.5-Math-1.5B-Instruct",
++    "qwen3-8b-base": "Qwen/Qwen3-8B-Base",
+ }
+ 
+ 
+@@ -19,10 +27,10 @@ REWARD_STYLE: str = "rule-lighteval/MATH_v2"
+ 
+ 
+ # Base directory for auto-selected dataset outputs
+-BASE_DATA_DIR: str = "/path/to/data" #SET YOUR OWN PATH
++BASE_DATA_DIR: str = os.path.join(_REPO_ROOT, "data_local", "data")
+ 
+ # Base directory for API responses
+-BASE_RESPONSES_DIR: str = "/path/to/responses" #SET YOUR OWN PATH
++BASE_RESPONSES_DIR: str = os.path.join(_REPO_ROOT, "data_local", "responses")
+ 
+ 
+ # Map model keys to short model type identifiers used in dataset paths
+diff --git a/automated/dynamic_selection.py b/automated/dynamic_selection.py
+index d48fb87..6a07ab6 100755
+--- a/automated/dynamic_selection.py
++++ b/automated/dynamic_selection.py
+@@ -96,23 +96,114 @@ def chunk_dataset(train_dir: str, exp_root: str, train_parquet: str, chunk_size:
+     return num_chunks, chunk_dirs
+ 
+ 
+-def _kill_other_pythons() -> None:
+-    """Force-kill all other python processes except this one.
++def _reap_our_orphaned_stage_processes() -> None:
++    """Terminate orphaned stage processes that this pipeline started.
++
++    Ray shuts down the vLLM engine actor at the end of a stage but can leave its
++    EngineCore child process running with its GPU memory still allocated. A
++    process is terminated only if all of the following hold:
++      - owned by the current user,
++      - orphaned (ppid == 1),
++      - a python executable,
++      - working directory inside this GradAlign checkout,
++      - VIRTUAL_ENV pointing at this checkout's .venv (not checked when
++        GRADALIGN_REAP_ANY_ORPHAN=1),
++      - not a dynamic_selection.py orchestrator.
++    """
++    import glob
++    import signal as _signal
++
++    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++    my_uid = os.getuid()
++    for pid_dir in glob.glob("/proc/[0-9]*"):
++        try:
++            pid = int(os.path.basename(pid_dir))
++        except ValueError:
++            continue
++        if pid == os.getpid():
++            continue
++        try:
++            if os.stat(pid_dir).st_uid != my_uid:
++                continue
++            with open(os.path.join(pid_dir, "stat")) as f:
++                ppid = int(f.read().rsplit(")", 1)[1].split()[1])
++            if ppid != 1:
++                continue
++            exe = os.readlink(os.path.join(pid_dir, "exe"))
++            cwd = os.readlink(os.path.join(pid_dir, "cwd"))
++            with open(os.path.join(pid_dir, "cmdline"), "rb") as f:
++                cmdline = f.read().replace(b"\0", b" ").decode(errors="replace")
++            with open(os.path.join(pid_dir, "environ"), "rb") as f:
++                environ = f.read().replace(b"\0", b"\n").decode(errors="replace")
++        except (OSError, ValueError, IndexError):
++            continue
++        if "python" not in os.path.basename(exe):
++            continue
++        if not (cwd == repo_root or cwd.startswith(repo_root + os.sep)):
++            continue
++        if os.environ.get("GRADALIGN_REAP_ANY_ORPHAN", "0") != "1" and \
++           f"VIRTUAL_ENV={repo_root}/.venv" not in environ.splitlines() and \
++           f"VIRTUAL_ENV={os.path.join(repo_root, '.venv')}" not in environ.splitlines():
++            # In a dedicated container without a .venv, GRADALIGN_REAP_ANY_ORPHAN=1
++            # drops the virtual-environment check.
++            continue
++        if "dynamic_selection.py" in cmdline:
++            continue
++        print(
++            f"[dynamic_selection] terminating orphaned stage process "
++            f"pid={pid} cmd={cmdline[:80]!r} (ppid=1, cwd={cwd})"
++        )
++        try:
++            os.kill(pid, _signal.SIGTERM)
++        except OSError:
++            pass
+ 
+-    This is a blunt instrument intended to free GPUs/CPUs before heavy stages.
++
++def _kill_other_pythons() -> None:
++    """Wait until the GPUs are free between stages; unrelated processes are not killed.
++
++    The released version force-killed (kill -9) every other python process on the
++    machine. This version terminates only orphaned stage processes of this pipeline
++    (_reap_our_orphaned_stage_processes) and waits until every GPU in
++    CUDA_VISIBLE_DEVICES has released its memory, because Ray shuts down the
++    previous vLLM engine asynchronously and the next stage needs the memory.
++    It raises after 900 s.
+     """
+-    try:
+-        # Use pkill to terminate python processes not matching this PID
+-        # Avoid killing this script by filtering our own PID via shell pattern
+-        my_pid = str(os.getpid())
+-        # Build the awk with proper quoting to avoid f-string braces issues
+-        awk_expr = f"$2~/(python|python3)/ && $1!={my_pid} {{print $1}}"
+-        shell_cmd = f"ps -eo pid,comm,cmd | awk '{awk_expr}' | xargs -r -n1 -P1 kill -9"
+-        cmd = ["bash", "-lc", shell_cmd]
+-        subprocess.run(cmd, check=False)
+-    except Exception:
+-        # Best-effort; do not crash orchestrator
+-        pass
++    print("[dynamic_selection] waiting for the GPUs to drain (other processes are not killed)")
++    _reap_our_orphaned_stage_processes()
++    visible = os.environ.get("CUDA_VISIBLE_DEVICES", "")
++    idxs = [int(x) for x in visible.split(",") if x.strip().isdigit()]
++    if not idxs:
++        print("[dynamic_selection] CUDA_VISIBLE_DEVICES unset/opaque; not waiting")
++        return
++    deadline = time.time() + 900
++    while True:
++        try:
++            out = subprocess.check_output(
++                ["nvidia-smi", "--query-gpu=index,memory.used,memory.total",
++                 "--format=csv,noheader,nounits"], text=True)
++            used, total = {}, {}
++            for line in out.strip().splitlines():
++                i, u, t = [int(v.strip()) for v in line.split(",")]
++                used[i], total[i] = u, t
++        except (OSError, subprocess.CalledProcessError, ValueError) as e:
++            raise SystemExit(f"[dynamic_selection] nvidia-smi query failed: {e}")
++        # Drained = under 6 GiB or 8% of the card, whichever is larger.
++        busy = [i for i in idxs
++                if used.get(i, 0) > max(6144, int(0.08 * total.get(i, 0)))]
++        if not busy:
++            print(f"[dynamic_selection] GPU(s) {idxs} drained: "
++                  f"{ {i: used.get(i) for i in idxs} } MiB used")
++            return
++        if time.time() > deadline:
++            raise SystemExit(
++                f"[dynamic_selection] GPU(s) {busy} still hold "
++                f"{ {i: used[i] for i in busy} } MiB after 900s; refusing to "
++                "stack engines. Clean up manually and rerun (auto-resume).")
++        print(f"[dynamic_selection] waiting for GPU(s) {busy} to drain: "
++              f"{ {i: used[i] for i in busy} } MiB used")
++        _reap_our_orphaned_stage_processes()
++        time.sleep(10)
+ 
+ 
+ def _set_random_seed(seed: int) -> None:
+@@ -139,6 +230,24 @@ def _set_random_seed(seed: int) -> None:
+     #     pass
+ 
+ 
++
++def _run_with_retries(cmd, check=True):
++    """Retry a failed stage instead of aborting the run.
++    GRADALIGN_MAX_RETRIES (default 0) keeps the released behavior. Before a retry the GPUs
++    are drained (_kill_other_pythons), and verl resumes from its last saved checkpoint
++    (trainer.resume_mode=auto)."""
++    max_retries = int(os.environ.get("GRADALIGN_MAX_RETRIES", "0"))
++    for attempt in range(max_retries + 1):
++        try:
++            return subprocess.run(cmd, check=check)
++        except subprocess.CalledProcessError as e:
++            if attempt >= max_retries:
++                raise
++            print(f"[dynamic_selection] stage failed (exit {e.returncode}), attempt {attempt + 1}/{max_retries + 1}; "
++                  f"retrying in 60 s: {' '.join(cmd[:4])} ...", flush=True)
++            _kill_other_pythons()
++            time.sleep(60)
++
+ def main():
+     parser = argparse.ArgumentParser(description="Dynamic selection orchestrator: chunk → infer → analyze → aggregate → select → train")
+     parser.add_argument("--prefix", required=True, type=str)
+@@ -161,7 +270,7 @@ def main():
+     parser.add_argument("--seed", default=42, type=int)
+ 
+     # Selection controls
+-    parser.add_argument("--mode", choices=["sim", "simacc", "acc", "rand", "accgreedy", 'align', 'negsim', 'norm', 'dot'], required=True)
++    parser.add_argument("--mode", choices=["sim", "simacc", "acc", "rand", "accgreedy", 'align', 'negsim', 'norm', 'dot', 'prod'], required=True)
+     parser.add_argument("--acc_low", type=float, default=0.2)
+     parser.add_argument("--acc_high", type=float, default=0.8)
+     parser.add_argument("--epochs_per_select", type=int, default=1,
+@@ -181,7 +290,7 @@ def main():
+     parser.add_argument("--max_problems", type=int, default=40000)
+     parser.add_argument("--temperature", type=float, default=0.7)
+     parser.add_argument("--max_tokens", type=int, default=4096)
+-    parser.add_argument("--concurrency", type=int, default=8)
++    parser.add_argument("--concurrency", type=int, default=int(os.environ.get("GRADALIGN_INFER_CONCURRENCY", "8")))  # number of vLLM engines
+     parser.add_argument("--tensor_parallel_size", type=int, default=1)
+     parser.add_argument("--pipeline_parallel_size", type=int, default=1)
+     parser.add_argument("--train_infer_batch_size", type=int, default=512)
+@@ -194,8 +303,12 @@ def main():
+     # Checkpoint/merge controls
+     parser.add_argument("--ckpt_root", type=str, default="",
+                         help="Root directory where VERL checkpoints are saved")
+-    parser.add_argument("--merge_backend", type=str, default="megatron")
++    # env: single-node adaptation — default fsdp (single-node, non-megatron)
++    parser.add_argument("--merge_backend", type=str, default="fsdp")
+     parser.add_argument("--verl_val_set", type=str, default="amc_mc_aime_amc_mmlupro")
++    # env: single-node adaptation — number of GPUs for the analysis stage
++    parser.add_argument("--num_gpus", type=int, default=1,
++                        help="Number of GPUs used by the parallel analysis stage")
+ 
+     args = parser.parse_args()
+     _set_random_seed(args.seed)
+@@ -356,14 +469,20 @@ def main():
+                         actual_train = len(data)
+             except json.JSONDecodeError:
+                 actual_train = 0
++        skip_rand_rollouts = args.mode == "rand" and os.environ.get("GRADALIGN_SKIP_ROLLOUTS_FOR_RAND") == "1"
++        # The released loop rolls out every candidate and validation problem in every mode, but the rand
++        # selection (select_data.py select_random) reads neither; skipping both stages for rand changes no
++        # result, only wall clock. Off unless the variable is set.
+         if actual_train >= expected_train and expected_train > 0:
+             print(f"Skip train inference for step {i}: found {actual_train}/{expected_train} responses")
++        elif skip_rand_rollouts:
++            print(f"[dynamic_selection] GRADALIGN_SKIP_ROLLOUTS_FOR_RAND=1: skipping candidate rollouts for rand at step {i}")
+         else:
+             print("Executing:", " ".join(infer_cmd))
+-            subprocess.run(infer_cmd, check=True)
++            _run_with_retries(infer_cmd)
+ 
+         # 3b) Local validation inference → responses.json in step-root val_responses (flat)
+-        if args.mode in ['sim', 'simacc', 'negsim', 'dot']:
++        if args.mode in ['sim', 'simacc', 'negsim', 'dot', 'prod']:
+             val_prompts_file = os.path.join(val_dir, "train.jsonl")
+             if not os.path.isfile(val_prompts_file):
+                 raise SystemExit(f"Validation prompts not found: {val_prompts_file}")
+@@ -414,14 +533,16 @@ def main():
+                     actual_val = 0
+             if expected_val > 0 and actual_val >= expected_val:
+                 print(f"Skip val inference for step {i}: found {actual_val}/{expected_val} responses")
++            elif skip_rand_rollouts:
++                print(f"[dynamic_selection] GRADALIGN_SKIP_ROLLOUTS_FOR_RAND=1: skipping validation rollouts for rand at step {i}")
+             else:
+                 print("Executing:", " ".join(infer_val_cmd))
+-                subprocess.run(infer_val_cmd, check=True)
++                _run_with_retries(infer_val_cmd)
+ 
+         # 3) Analysis and aggregation (for sim/simacc)
+         _kill_other_pythons()
+         time.sleep(5)
+-        if args.mode in {"sim", "simacc", "align", "negsim", 'norm', 'dot'}:
++        if args.mode in {"sim", "simacc", "align", "negsim", 'norm', 'dot', 'prod'}:
+             if args.mode == 'align' or args.mode == 'norm':
+                 args.val_dataset = args.train_dataset
+                 val_dir_override = train_resp_dir
+@@ -435,31 +556,43 @@ def main():
+                 "--val_dataset", args.val_dataset,
+                 "--parts_root", train_parts_root,
+                 "--val_responses_dir", val_dir_override,
+-                "--num_gpus", "8",
++                "--num_gpus", str(args.num_gpus),
+                 "--mini_batch_size", str(args.minibatch_size),
+                 "--mixed_precision", "bf16",
+                 "--max_length", str(args.max_model_len),
+             ]
+             if merged_model_path:
+                 ana_cmd.extend(["--model_path", merged_model_path])
+-            if args.mode == 'norm' or args.mode == 'dot':
++            if os.environ.get("GRADALIGN_ANALYSIS_CPU_OFFLOAD") == "1":
++                # Forward the released analyzer's FSDP CPU-offload switch (run_parallel_analysis.py
++                # --cpu_offload) for models whose full gradient does not fit in GPU memory.
++                ana_cmd.append("--cpu_offload")
++            if os.environ.get("GRADALIGN_ANALYSIS_NO_CPU_OFFLOAD") == "1":
++                # The released wrapper turns FSDP CPU offload on by default; this turns it off, which is
++                # faster when the full gradient fits in GPU memory.
++                ana_cmd.append("--no_cpu_offload")
++            if args.mode in ('norm', 'dot', 'prod'):
+                 # Pass mode as separate CLI argument and value
+                 ana_cmd.extend(["--mode", args.mode])
+             # Skip analysis if per-response similarity already computed
+             sim_path = os.path.join(train_part_dir, "similarity_results_cosine_real.jsonl")
+             sim_lines = _count_lines(sim_path) if os.path.isfile(sim_path) else 0
+-            if sim_lines >= expected_train and expected_train > 0:
+-                print(f"Skip analysis for step {i}: found {sim_lines}/{expected_train} similarity rows")
++            # One similarity row per GROUP (problem), not per response: the
++            # analyzer writes a single record per group_id, so completion is
++            # chunk_sizes[chunk_idx] rows, not chunk_size * n_samples_train.
++            expected_sim = chunk_sizes[chunk_idx]
++            if sim_lines >= expected_sim and expected_sim > 0:
++                print(f"Skip analysis for step {i}: found {sim_lines}/{expected_sim} similarity rows")
+             else:
+                 print("Executing:", " ".join(ana_cmd))
+-                subprocess.run(ana_cmd, check=True)
++                _run_with_retries(ana_cmd)
+ 
+         # After inference and analysis, aggressively clean up other python processes
+         _kill_other_pythons()
+         time.sleep(10)
+ 
+         # Aggregate accuracy and copy similarity
+-        if args.mode in {"sim", "simacc", "acc", "accgreedy", 'align', 'negsim', 'norm', 'dot'}:
++        if args.mode in {"sim", "simacc", "acc", "accgreedy", 'align', 'negsim', 'norm', 'dot', 'prod'}:
+             agg_cmd = [
+                 sys.executable, os.path.join(os.path.dirname(__file__), "aggregate.py"),
+                 "--model_name", args.model,
+@@ -467,13 +600,15 @@ def main():
+                 "--parts_root", train_parts_root,
+             ]
+             print("Executing:", " ".join(agg_cmd))
+-            subprocess.run(agg_cmd, check=True)
++            _run_with_retries(agg_cmd)
+ 
+         # 4) Select top-N according to mode
+         iter_out = os.path.join(exp_ckpt_root, "selected", f"iter_{i}_{args.mode}_{select_n}")
+         os.makedirs(iter_out, exist_ok=True)
+         select_mode = args.mode
+-        if select_mode == 'dot' or select_mode == 'norm':
++        if select_mode in ('dot', 'norm', 'prod'):
++            # prod (like dot/norm) writes its score into the 'similarity' field;
++            # selection/aggregation treat it as 'sim'.
+             select_mode = 'sim'
+         sel_cmd = [
+             sys.executable, os.path.join(os.path.dirname(__file__), "select_data.py"),
+@@ -483,14 +618,19 @@ def main():
+             "--n", str(select_n),
+             "--output_dir", iter_out,
+         ]
+-        if args.mode in {"sim", "simacc", "acc", "accgreedy", "align", "negsim", 'norm', 'dot'}:
++        if args.mode in {"sim", "simacc", "acc", "accgreedy", "align", "negsim", 'norm', 'dot', 'prod'}:
+             sel_cmd.extend(["--parts_root", train_parts_root])
+         if args.mode == "acc":
+             sel_cmd.extend(["--acc_low", str(args.acc_low), "--acc_high", str(args.acc_high)])
+         print("Executing:", " ".join(sel_cmd))
+-        subprocess.run(sel_cmd, check=True)
++        _run_with_retries(sel_cmd)
+         _kill_other_pythons()
+         time.sleep(10)
++        if os.environ.get("GRADALIGN_STOP_AFTER_SELECT") == "1":
++            # Selection-only runs (rollouts, scoring and selection of one round) stop here; rerunning
++            # without the variable resumes into training from the saved stages.
++            print(f"[dynamic_selection] GRADALIGN_STOP_AFTER_SELECT=1: stopping after selection round {i}")
++            return
+ 
+         # 5) Launch training with selected set, fixed experiment name
+         os.system(f"rm {step_root}/data.pt")
+@@ -513,7 +653,7 @@ def main():
+             train_cmd.extend(["--reward_path", args.reward_path])
+             
+         print("Executing:", " ".join(train_cmd))
+-        subprocess.run(train_cmd, check=True)
++        _run_with_retries(train_cmd)
+         _kill_other_pythons()
+         time.sleep(10)
+ 
+diff --git a/automated/launch_verl_training.py b/automated/launch_verl_training.py
+index f35dd97..d02622d 100755
+--- a/automated/launch_verl_training.py
++++ b/automated/launch_verl_training.py
+@@ -7,6 +7,10 @@ import sys
+ 
+ from config import get_model_path, get_dataset_dir
+ 
++# env: single-node adaptation — resolve paths relative to the GradAlign checkout
++# instead of ~/data_selection.
++_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++
+ 
+ def build_exp_name(prefix: str, model_name: str, train_dataset, train_dir: str, val_dir: str) -> str:
+     train_name = os.path.basename(os.path.normpath(train_dir))
+@@ -14,6 +18,27 @@ def build_exp_name(prefix: str, model_name: str, train_dataset, train_dir: str,
+     return f"{prefix}_{model_name}_{train_dataset}_{train_name}_{val_name}"
+ 
+ 
++def wait_for_host_ram(min_avail_gb=None, timeout_s=21600, poll_s=60):
++    import os
++    if min_avail_gb is None:
++        min_avail_gb = float(os.environ.get("GRADALIGN_MIN_AVAIL_GB", "32"))
++    if min_avail_gb <= 0:
++        print("[launch_verl] RAM gate disabled (GRADALIGN_MIN_AVAIL_GB<=0)", flush=True)
++        return
++    # Delay the verl launch until the host has min_avail_gb GiB of available memory
++    # (GRADALIGN_MIN_AVAIL_GB, default 32; 0 disables), which avoids out-of-memory kills
++    # by Ray on hosts shared with other jobs. After timeout_s the launch proceeds anyway.
++    import time
++    t0 = time.time()
++    while time.time() - t0 < timeout_s:
++        avail_kb = int(next(l for l in open("/proc/meminfo") if l.startswith("MemAvailable")).split()[1])
++        if avail_kb / 1048576.0 >= min_avail_gb:
++            print(f"[launch_verl] RAM gate pass: {avail_kb/1048576.0:.1f} GiB available", flush=True)
++            return
++        print(f"[launch_verl] RAM gate: {avail_kb/1048576.0:.1f} GiB available < {min_avail_gb} GiB; waiting {poll_s}s", flush=True)
++        time.sleep(poll_s)
++    print("[launch_verl] RAM gate timeout; launching anyway", flush=True)
++
+ def main():
+     parser = argparse.ArgumentParser(description="Launch VERL PPO training with standardized naming")
+     parser.add_argument("--prefix", required=True, type=str, help="Experiment name prefix")
+@@ -28,7 +53,8 @@ def main():
+ 
+     # Optional overrides / settings
+     parser.add_argument("--project_name", default="Dynamic-restart", type=str)
+-    parser.add_argument("--ckpts_root", default="~/data_selection/data/chkpt", type=str)
++    # env: single-node adaptation — checkpoints under the repo clone
++    parser.add_argument("--ckpts_root", default=os.path.join(_REPO_ROOT, "data_local", "chkpt"), type=str)
+     parser.add_argument("--train_parquet", default="train.parquet", type=str, help="Filename of training parquet inside train_dir")
+     parser.add_argument("--val_parquet", default="train.parquet", type=str, help="Filename of validation parquet inside val_dir")
+ 
+@@ -36,10 +62,10 @@ def main():
+     parser.add_argument("--train_batch_size", type=int, default=128)
+     parser.add_argument("--max_prompt_length", type=int, default=1024)
+     parser.add_argument("--max_response_length", type=int, default=4096)
+-    parser.add_argument("--ppo_mini_batch_size", type=int, default=32)
+-    parser.add_argument("--ppo_micro_batch_size_per_gpu", type=int, default=2)
++    parser.add_argument("--ppo_mini_batch_size", type=int, default=int(os.environ.get("GRADALIGN_PPO_MINI", "32")))
++    parser.add_argument("--ppo_micro_batch_size_per_gpu", type=int, default=int(os.environ.get("GRADALIGN_PPO_MICRO", "2")))
+     parser.add_argument("--lr", type=float, default=1e-6)
+-    parser.add_argument("--use_kl_loss", action="store_true", default=True)
++    parser.add_argument("--use_kl_loss", action="store_true", default=os.environ.get("GRADALIGN_USE_KL", "1") == "1")  # paper: no KL; ref pass is dead compute at coef 0
+     parser.add_argument("--entropy_coeff", type=float, default=0.0)
+     parser.add_argument("--kl_loss_coef", type=float, default=0.001)
+     parser.add_argument("--clip_ratio_low", type=float, default=0.2)
+@@ -47,11 +73,11 @@ def main():
+ 
+     # Rollout/ref settings
+     parser.add_argument("--rollout_name", default="vllm", type=str)
+-    parser.add_argument("--rollout_n", type=int, default=32)
++    parser.add_argument("--rollout_n", type=int, default=int(os.environ.get("GRADALIGN_ROLLOUT_N", "32")))  # the Countdown runs use 128
+     parser.add_argument("--rollout_val_do_sample", action="store_true", default=True)
+     parser.add_argument("--rollout_val_temperature", type=float, default=0.7)
+     parser.add_argument("--rollout_val_n", type=int, default=16)
+-    parser.add_argument("--rollout_max_num_batched_tokens", type=int, default=163840)
++    parser.add_argument("--rollout_max_num_batched_tokens", type=int, default=int(os.environ.get("GRADALIGN_BATCHED_TOKENS", "163840")))
+ 
+     # Parallelism/offload controls
+     parser.add_argument("--ref_pipeline_mp", type=int, default=4)
+@@ -61,12 +87,19 @@ def main():
+     parser.add_argument("--param_offload", action="store_true", default=True)
+     parser.add_argument("--optimizer_offload", action="store_true", default=True)
+     parser.add_argument("--grad_offload", action="store_true", default=True)
+-    parser.add_argument("--gpu_memory_utilization", type=float, default=0.8)
++    parser.add_argument("--gpu_memory_utilization", type=float, default=float(os.environ.get("GRADALIGN_VLLM_UTIL", "0.8")))
+ 
+     # Trainer settings
+-    parser.add_argument("--n_gpus_per_node", type=int, default=8)
++    # env: single-node adaptation — default single GPU
++    parser.add_argument("--n_gpus_per_node", type=int, default=int(os.environ.get("GRADALIGN_TRAIN_GPUS", "1")))
++    # env: single-node adaptation — verl's default rollout TP is 2, which
++    # asserts out on a single GPU (world_size 1 not divisible by 2)
++    parser.add_argument("--rollout_tp", type=int, default=1)
+     parser.add_argument("--nnodes", type=int, default=1)
+-    parser.add_argument("--save_freq", type=int, default=2)
++    # Save a checkpoint every 10 steps, the end of a Countdown round, by default (released: 2).
++    # dynamic_selection.py merges only global_step_{i*iters_per_select}, and verl always saves the
++    # last step. Fewer saves reduce the time spent writing checkpoints. GRADALIGN_SAVE_FREQ overrides.
++    parser.add_argument("--save_freq", type=int, default=int(os.environ.get("GRADALIGN_SAVE_FREQ", "10")))
+     parser.add_argument("--test_freq", type=int, default=5)
+     parser.add_argument("--total_epochs", type=int, default=1500)
+     parser.add_argument("--resume_mode", type=str, default="auto")
+@@ -74,12 +107,14 @@ def main():
+     parser.add_argument("--exp_name", default=None, type=str, help="Override experiment name (otherwise derived)")
+ 
+     # Paths to config and reward function
+-    parser.add_argument("--config_path", default="~/data_selection/verl/verl/trainer/config", type=str)
++    # env: single-node adaptation — use the verl fork vendored in this repo
++    parser.add_argument("--config_path", default=os.path.join(_REPO_ROOT, "verl", "verl", "trainer", "config"), type=str)
+     parser.add_argument("--config_name", default="ppo_megatron_trainer.yaml", type=str)
+     # parser.add_argument("--reward_path", default="math_reward.py", type=str)
+     parser.add_argument("--reward_path", default="math_reward.py", type=str)
+     parser.add_argument("--reward_name", default="compute_score", type=str)
+-    parser.add_argument("--backend", default="megatron", type=str)
++    # env: single-node adaptation — default FSDP (non-megatron) backend for single-GPU
++    parser.add_argument("--backend", default="fsdp", type=str)
+     parser.add_argument("--reward_manager", default="naive", type=str)
+ 
+     args = parser.parse_args()
+@@ -132,7 +167,7 @@ def main():
+             f"actor_rollout_ref.ref.megatron.pipeline_model_parallel_size={args.ref_pipeline_mp}",
+             f"actor_rollout_ref.ref.megatron.tensor_model_parallel_size={args.ref_tensor_mp}",
+             "actor_rollout_ref.actor.megatron.use_dist_checkpointing=False",
+-            "actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=2",
++            f"actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu={os.environ.get('GRADALIGN_LOGPROB_MICRO', '2')}",
+             "actor_rollout_ref.ref.megatron.use_dist_checkpointing=False",
+             f"actor_rollout_ref.actor.megatron.param_offload={str(args.param_offload)}",
+             f"actor_rollout_ref.actor.megatron.pipeline_model_parallel_size={args.actor_pipeline_mp}",
+@@ -142,7 +177,7 @@ def main():
+             "actor_rollout_ref.ref.megatron.param_offload=True",
+             f"actor_rollout_ref.rollout.gpu_memory_utilization={args.gpu_memory_utilization}",
+             "trainer.logger=['console','tensorboard']",
+-            f"custom_reward_function.path=~/data_selection/verl/verl/utils/reward_score/{args.reward_path}",
++            f"custom_reward_function.path={os.path.join(_REPO_ROOT, 'verl', 'verl', 'utils', 'reward_score', args.reward_path)}",
+             f"custom_reward_function.name={args.reward_name}",
+             f"trainer.project_name={args.project_name}",
+             f"trainer.experiment_name={exp_name}",
+@@ -150,6 +185,7 @@ def main():
+             f"trainer.nnodes={args.nnodes}",
+             f"trainer.save_freq={args.save_freq}",
+             f"trainer.test_freq={args.test_freq}",
++            "trainer.val_before_train=False",  # no validation before training; the periodic validation (test_freq) gives the curve
+             f"trainer.total_epochs={args.total_epochs}",
+             f"trainer.resume_mode={args.resume_mode}",
+             f"trainer.default_local_dir={ckpts_dir}",
+@@ -159,6 +195,8 @@ def main():
+         cmd = [
+             sys.executable, "-m", "verl.trainer.main_ppo",
+             "algorithm.adv_estimator=grpo",
++            # verl's default 600 s process-group timeout can expire during checkpoint saves on slow storage
++            f"actor_rollout_ref.nccl_timeout={os.environ.get('GRADALIGN_NCCL_TIMEOUT', '10800')}",
+             f"data.train_files={train_file}",
+             f"data.val_files={val_file}",
+             f"data.train_batch_size={args.train_batch_size}",
+@@ -169,7 +207,8 @@ def main():
+             f"actor_rollout_ref.model.path={model_path}",
+             f"actor_rollout_ref.actor.optim.lr={args.lr}",
+             f"actor_rollout_ref.actor.ppo_mini_batch_size={args.ppo_mini_batch_size}",
+-            f"actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu={int(args.ppo_micro_batch_size_per_gpu) * 8}",
++            # env: single-node adaptation — no x8 scaling (was tuned for an 8-GPU node)
++            f"actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu={int(args.ppo_micro_batch_size_per_gpu)}",
+             f"actor_rollout_ref.actor.use_kl_loss={str(args.use_kl_loss)}",
+             f"actor_rollout_ref.actor.entropy_coeff={args.entropy_coeff}",
+             f"actor_rollout_ref.actor.kl_loss_coef={args.kl_loss_coef}",
+@@ -177,16 +216,41 @@ def main():
+             f"actor_rollout_ref.actor.clip_ratio_high={args.clip_ratio_high}",
+             "actor_rollout_ref.model.enable_gradient_checkpointing=True",
+             f"actor_rollout_ref.rollout.name={args.rollout_name}",
++            f"actor_rollout_ref.rollout.tensor_model_parallel_size={args.rollout_tp}",
+             f"actor_rollout_ref.rollout.n={args.rollout_n}",
+             f"actor_rollout_ref.rollout.val_kwargs.do_sample={str(args.rollout_val_do_sample)}",
+             f"actor_rollout_ref.rollout.val_kwargs.temperature={args.rollout_val_temperature}",
+             f"actor_rollout_ref.rollout.val_kwargs.n={args.rollout_val_n}",
+             f"actor_rollout_ref.rollout.max_num_batched_tokens={args.rollout_max_num_batched_tokens}",
+-            "actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=40",
+-            "actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=40",
++            f"actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu={os.environ.get('GRADALIGN_LOGPROB_MICRO', '8')}",
++            f"actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu={os.environ.get('GRADALIGN_LOGPROB_MICRO', '8')}",
++            # Memory and throughput switches; none changes the computation beyond floating-point rounding.
++            # FSDP parameter and optimizer offload is off unless GRADALIGN_FSDP_OFFLOAD=1.
++            f"actor_rollout_ref.actor.use_dynamic_bsz={os.environ.get('GRADALIGN_DYNBSZ', '0') == '1'}",
++            # Throughput-only knobs (same computation up to rounding): sequence packing needs flash_attn; fused linear-CE avoids fp32 logits.
++            f"actor_rollout_ref.model.use_remove_padding={os.environ.get('GRADALIGN_REMOVE_PADDING', '0') == '1'}",
++            f"actor_rollout_ref.model.use_fused_kernels={os.environ.get('GRADALIGN_FUSED_KERNELS', '0') == '1'}",
++            f"actor_rollout_ref.actor.ppo_max_token_len_per_gpu={os.environ.get('GRADALIGN_PPO_MAX_TOKEN_LEN', '32768')}",
++            f"actor_rollout_ref.rollout.log_prob_use_dynamic_bsz={os.environ.get('GRADALIGN_DYNBSZ', '0') == '1'}",
++            f"actor_rollout_ref.rollout.log_prob_max_token_len_per_gpu={os.environ.get('GRADALIGN_LOGPROB_MAX_TOKEN_LEN', '65536')}",
++            f"actor_rollout_ref.ref.log_prob_use_dynamic_bsz={os.environ.get('GRADALIGN_DYNBSZ', '0') == '1'}",
++            f"actor_rollout_ref.ref.log_prob_max_token_len_per_gpu={os.environ.get('GRADALIGN_LOGPROB_MAX_TOKEN_LEN', '65536')}",
++            f"actor_rollout_ref.ref.fsdp_config.param_offload={os.environ.get('GRADALIGN_FSDP_OFFLOAD', '0') == '1'}",
++            f"actor_rollout_ref.actor.fsdp_config.param_offload={os.environ.get('GRADALIGN_FSDP_OFFLOAD', '0') == '1'}",
++            f"actor_rollout_ref.actor.fsdp_config.optimizer_offload={os.environ.get('GRADALIGN_FSDP_OFFLOAD', '0') == '1'}",
++            # Eager vLLM by default (no CUDA graphs): slower rollouts, less host memory.
++            f"actor_rollout_ref.rollout.enforce_eager={os.environ.get('GRADALIGN_ENFORCE_EAGER', '1') == '1'}",
+             f"actor_rollout_ref.rollout.gpu_memory_utilization={args.gpu_memory_utilization}",
++            # Ray CPU slots (GRADALIGN_RAY_CPUS, default 8): one per training GPU plus the task runner,
++            # so runs with more than 7 training GPUs need a larger value. Fewer slots also start
++            # fewer idle Ray worker processes.
++            f"ray_kwargs.ray_init.num_cpus={os.environ.get('GRADALIGN_RAY_CPUS', '8')}",
++            # No vLLM swap space (pinned host memory for KV-cache preemption; vLLM default 4 GiB).
++            # engine_kwargs.vllm is passed verbatim to the vLLM engine
++            # (verl/workers/rollout/vllm_rollout/vllm_rollout_spmd.py).
++            "+actor_rollout_ref.rollout.engine_kwargs.vllm.swap_space=0",
+             "trainer.logger=['console','tensorboard']",
+-            f"custom_reward_function.path=~/data_selection/verl/verl/utils/reward_score/{args.reward_path}",
++            f"custom_reward_function.path={os.path.join(_REPO_ROOT, 'verl', 'verl', 'utils', 'reward_score', args.reward_path)}",
+             f"custom_reward_function.name={args.reward_name}",
+             f"trainer.project_name={args.project_name}",
+             f"trainer.experiment_name={exp_name}",
+@@ -194,12 +258,14 @@ def main():
+             f"trainer.nnodes={args.nnodes}",
+             f"trainer.save_freq={args.save_freq}",
+             f"trainer.test_freq={args.test_freq}",
++            "trainer.val_before_train=False",  # no validation before training; the periodic validation (test_freq) gives the curve
+             f"trainer.total_epochs={args.total_epochs}",
+             f"trainer.resume_mode={args.resume_mode}",
+             f"trainer.default_local_dir={ckpts_dir}",
+         ]
+ 
+     print("Executing:\n" + " \\n+    \n".join(cmd))
++    wait_for_host_ram()
+     subprocess.run(cmd, check=True)
+     print(f"Training launched. Checkpoints at: {ckpts_dir}")
+ 
+diff --git a/automated/run_inference_local.py b/automated/run_inference_local.py
+index 4477bc4..eff6ae4 100755
+--- a/automated/run_inference_local.py
++++ b/automated/run_inference_local.py
+@@ -26,9 +26,11 @@ def main():
+     parser.add_argument("--max_model_len", default=4096, type=int)
+     parser.add_argument("--min_problems", default=1, type=int)
+     parser.add_argument("--max_problems", default=40000, type=int)
+-    parser.add_argument("--concurrency", default=8, type=int)
++    parser.add_argument("--concurrency", default=int(os.environ.get("GRADALIGN_INFER_CONCURRENCY", "8")), type=int)  # number of vLLM engines
+     parser.add_argument("--max_tokens", default=4096, type=int)
+     parser.add_argument("--temperature", default=0.7, type=float)
++    parser.add_argument("--gpu_memory_utilization", type=float,
++                        default=float(os.environ.get("GRADALIGN_VLLM_UTIL", "0.9")))  # env: single-node adaptation, as in launch_verl_training
+     parser.add_argument("--use_model_judge", action="store_true", default=False,
+                         help="Enable model judge fallback after rule-based checks")
+     parser.add_argument("--model_judge_concurrency", default=1024, type=int,
+@@ -62,6 +64,7 @@ def main():
+         "--concurrency", str(args.concurrency),
+         "--max_tokens", str(args.max_tokens),
+         "--temperature", str(args.temperature),
++        "--gpu_memory_utilization", str(args.gpu_memory_utilization),
+         # temperature is not directly accepted by inference_ray_batch.py sampling params; keep default inside
+     ]
+     if args.use_model_judge:
+diff --git a/automated/run_parallel_analysis.py b/automated/run_parallel_analysis.py
+index b0172fe..d69c841 100755
+--- a/automated/run_parallel_analysis.py
++++ b/automated/run_parallel_analysis.py
+@@ -39,6 +39,9 @@ def main():
+     parser.add_argument("--mixed_precision", default="bf16", type=str)
+     parser.add_argument("--max_length", default=4096, type=int)
+     parser.add_argument("--cpu_offload", action="store_true", default=True)
++    # The released default keeps FSDP CPU offload on for every run; --no_cpu_offload turns it off
++    # (default behavior unchanged).
++    parser.add_argument("--no_cpu_offload", action="store_true", default=False)
+     parser.add_argument("--max_num_samples", default=10240000, type=int)
+     # Model path resolved from config
+     # (no explicit --model_path; derived from --model)
+@@ -98,7 +101,7 @@ def main():
+             "--max_length", str(args.max_length),
+             "--mode", args.mode,
+         ]
+-        if args.cpu_offload:
++        if args.cpu_offload and not args.no_cpu_offload:
+             cmd.append("--cpu_offload")
+         if args.max_num_samples is not None:
+             cmd.extend(["--max_num_samples", str(args.max_num_samples)])
+@@ -108,6 +111,9 @@ def main():
+ 
+         env = os.environ.copy()
+         env.setdefault("TORCH_NCCL_BLOCKING_WAIT", "1")
++        # Reduce CUDA memory fragmentation in the gradient analysis. Set for this stage only:
++        # vLLM's sleep-mode allocator (CuMemAllocator) does not support expandable_segments.
++        env.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+         env.setdefault("TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC", "7200")
+ 
+         print("Executing (cwd=parallel):", " ".join(cmd))
+diff --git a/select/inference_ray_batch.py b/select/inference_ray_batch.py
+index ecffd5a..c53d829 100755
+--- a/select/inference_ray_batch.py
++++ b/select/inference_ray_batch.py
+@@ -22,7 +22,14 @@ from datetime import datetime
+ 
+ import ray
+ from packaging.version import Version
+-from ray.data.llm import build_llm_processor, vLLMEngineProcessorConfig
++try:
++    from ray.data.llm import build_llm_processor, vLLMEngineProcessorConfig
++except ImportError:
++    # env: single-node adaptation — ray >= 2.5x renamed build_llm_processor
++    # to build_processor (same (config, preprocess, postprocess) signature;
++    # all vLLMEngineProcessorConfig kwargs used here still exist in 2.56).
++    from ray.data.llm import build_processor as build_llm_processor
++    from ray.data.llm import vLLMEngineProcessorConfig
+ 
+ # Add parent directory to path to import utils
+ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+@@ -234,8 +241,28 @@ def postprocess_from_vllm(row: Dict[str, Any]) -> Dict[str, Any]:
+     extracted_answer = extract_answer(response) or ""
+     
+     # Check if answer is correct using utility function (rule-based)
++    # Countdown problems are judged by the repository's Countdown judge
++    # (verl/verl/utils/reward_score/countdown_judge.py), which training also uses via
++    # --reward_path; the generic string comparison below cannot score expression answers.
+     expected = str(row.get("expected_answer", "")).strip()
+-    passed = compare_answers(extracted_answer, expected)
++    if "countdown" in str(row.get("data_source", "")):
++        import sys as _sys, os as _os
++        _sys.path.insert(0, _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
++                                          "..", "verl", "verl", "utils", "reward_score"))
++        from countdown_judge import judge_countdown as _jc
++        passed, _ = _jc(row.get("problem", row.get("prompt", "")), response)
++    elif "corrupted" in str(row.get("data_source", "")):
++        # A problem flagged corrupted (data source *_corrupted) gets a reward that does not
++        # depend on the response, a Bernoulli(0.5) draw per
++        # rollout. The draw is a hash of (seed, group_id, sample_id) so a re-run of the same rollouts
++        # reproduces the same rewards. The corrupted-reward runs stop after selection, so no verl
++        # training reward for corrupted problems is part of this patch.
++        import hashlib as _hl, os as _os
++        _seed = _os.environ.get("GRADALIGN_CORRUPT_SEED", "0")
++        _h = _hl.sha256(f"corrupt:{_seed}:{row['group_id']}:{row['sample_id']}".encode()).digest()
++        passed = bool(_h[0] & 1)
++    else:
++        passed = compare_answers(extracted_answer, expected)
+     
+     return {
+         "data_source": row["data_source"],
+diff --git a/select/parallel/analyze_grpo_parallel.py b/select/parallel/analyze_grpo_parallel.py
+index 260fccc..d22dafd 100755
+--- a/select/parallel/analyze_grpo_parallel.py
++++ b/select/parallel/analyze_grpo_parallel.py
+@@ -208,8 +208,10 @@ def main():
+     # Check if model exists (only on main process)
+     if temp_accelerator.is_main_process:
+         if not os.path.exists(args.model_path):
+-            print(f"Error: Model path {args.model_path} does not exist!")
+-            sys.exit(1)
++            # env: single-node adaptation — allow HF hub ids (e.g.
++            # Qwen/Qwen2.5-Math-1.5B-Instruct); from_pretrained fails loudly
++            # if the id is wrong.
++            print(f"Model path {args.model_path} not found locally; treating it as a HF hub id")
+         
+         # Check if response directories exist
+         if not os.path.exists(args.train_responses_dir):
+diff --git a/select/parallel/grpo_grad_analyze_parallel.py b/select/parallel/grpo_grad_analyze_parallel.py
+index bf11738..a2a9b2c 100755
+--- a/select/parallel/grpo_grad_analyze_parallel.py
++++ b/select/parallel/grpo_grad_analyze_parallel.py
+@@ -60,6 +60,11 @@ from grpo_utils import (
+     load_model_checkpoint,
+     check_model_for_nan
+ )
++from prod_feature import (
++    ProdSketch,
++    compute_prod_feature_distributed,
++    l2_normalize_feature,
++)
+ 
+ # Setup logging
+ logging.basicConfig(level=logging.INFO)
+@@ -208,6 +213,11 @@ class GRPOGradientAnalyzerParallel:
+             raise ValueError("optimizer_state_path must be provided when use_optimizer is True")
+         torch.set_printoptions(precision=10, threshold=5)
+         self.mode = mode
++        if self.mode == 'prod' and self.use_optimizer:
++            raise ValueError(
++                "mode='prod' does not support use_optimizer: optimizer exp_avg_sq scaling "
++                "applies to backprop gradients only, and PROD is forward-only"
++            )
+ 
+         self.optimizer: Optional[Adam] = None
+         self._name_to_param: Dict[str, torch.nn.Parameter] = {}
+@@ -247,7 +257,24 @@ class GRPOGradientAnalyzerParallel:
+         
+         # Load and prepare models
+         self._load_models()
+-        
++
++        # PROD sketch: built once (torch CPU generator, seed 0), cached on device.
++        # Built BEFORE accelerator.prepare so the un-sharded lm_head shape is available.
++        self.prod_sketch = None
++        if self.mode == 'prod':
++            vocab_size = self.model.get_output_embeddings().weight.shape[0]
++            hidden_size = self.model.config.hidden_size
++            self.prod_sketch = ProdSketch(
++                vocab_size=vocab_size,
++                hidden_size=hidden_size,
++                device=self.accelerator.device,
++            )
++            if self.accelerator.is_main_process:
++                logger.info(
++                    f"PROD sketch built: V={vocab_size}, H={hidden_size}, "
++                    f"feature_dim={self.prod_sketch.feature_dim}"
++                )
++
+         # Setup optimizer (needed for gradient computation structure)
+         # self.optimizer = AdamW(self.model.parameters(), lr=learning_rate)
+         
+@@ -590,7 +617,46 @@ class GRPOGradientAnalyzerParallel:
+         
+         return dot_product.item(), distribution
+     
+-    def save_result_incrementally(self, group_id: int, similarity: float, loss: float, output_path: str, distribution: Optional[Dict[str, float]] = None):
++    def _compute_prod_feature(self, data: List[Dict], normalize: bool = True) -> torch.Tensor:
++        """Sketched last-layer policy-gradient feature for this rank's shard of `data`.
++
++        Collective across ranks (all-reduce sum inside); every rank must call it.
++        """
++        if self.prod_sketch is None:
++            raise RuntimeError("PROD sketch not built; construct analyzer with mode='prod'")
++        feat = compute_prod_feature_distributed(
++            self.model,
++            self.accelerator,
++            data,
++            self.mini_batch_size,
++            self.prod_sketch,
++            self.tokenizer.pad_token_id,
++        )
++        if normalize:
++            feat = l2_normalize_feature(feat)
++        return feat
++
++    def _compute_val_prod(self, val_data: List[Dict], norm_before_accumlation: bool = False) -> torch.Tensor:
++        """Validation PROD feature, mirroring the gradient path's val handling.
++
++        Default: one feature over all val data (single L2 normalize).
++        norm_before_accumlation: per-group features, each normalized, summed,
++        then normalized again (mirrors the gradient branch of analyze_gradients).
++        """
++        if norm_before_accumlation:
++            data_map: Dict[int, List[Dict]] = defaultdict(list)
++            for item in val_data:
++                data_map[item['group_id']].append(item)
++            total = None
++            for group_id in data_map:
++                group_feat = self._compute_prod_feature(data_map[group_id], normalize=True)
++                total = group_feat if total is None else total + group_feat
++            if total is None:
++                raise ValueError("PROD: empty validation data; cannot compute val feature")
++            return l2_normalize_feature(total)
++        return self._compute_prod_feature(val_data, normalize=True)
++
++    def save_result_incrementally(self, group_id: int, similarity: float, loss: float, output_path: str, distribution: Optional[Dict[str, float]] = None, prod_similarity: Optional[float] = None):
+         """Save a single group's result to the JSONL files.
+         
+         - Main file (output_path): summary without full distribution
+@@ -619,6 +685,8 @@ class GRPOGradientAnalyzerParallel:
+             'loss': loss,
+             'timestamp': time()
+         }
++        if prod_similarity is not None:
++            result['prod_similarity'] = prod_similarity
+         
+         # Append to JSONL file
+         with open(output_path, 'a') as f:
+@@ -660,11 +728,36 @@ class GRPOGradientAnalyzerParallel:
+         if processed_groups is None:
+             processed_groups = set()
+         
++        # FSDP lazy init must NOT happen inside torch.no_grad(): with
++        # use_orig_params=True, making the very first forward a no-grad forward
++        # fails in _writeback_orig_params with "Cannot writeback when the
++        # parameter shape changes". Complete lazy init on the standard
++        # grad-enabled path with one tiny forward+backward before any PROD
++        # (no-grad) forward, then clear the dummy grads.
++        if self.mode == 'prod' and not getattr(self, "_fsdp_lazy_init_done", False):
++            dummy = torch.ones((1, 2), dtype=torch.long, device=self.accelerator.device)
++            warm = self.model(input_ids=dummy, attention_mask=torch.ones_like(dummy))
++            warm.logits.float().sum().backward()
++            self.model.zero_grad()
++            del warm
++            self._fsdp_lazy_init_done = True
++            if self.accelerator.is_main_process:
++                print("FSDP lazy-init warmup forward+backward done (pre-PROD)")
++
++        # Step 0: Compute validation PROD feature (forward-only) in prod mode.
++        val_prod = None
++        if self.mode == 'prod':
++            if self.accelerator.is_main_process:
++                print("Computing validation PROD feature (forward-only, sketched lm_head gradient)...")
++            # Mirror the gradient path: per-group val accumulation only applies
++            # when norm_before_accumlation is set and mode is not 'dot'.
++            val_prod = self._compute_val_prod(val_data, norm_before_accumlation and self.mode != 'dot')
++
+         # Step 1: Compute validation gradients using all GPUs
+         if self.accelerator.is_main_process:
+             print("Computing validation gradients using all GPUs...")
+ 
+-        if self.mode !='norm':
++        if self.mode not in ('norm', 'prod'):
+             if norm_before_accumlation and self.mode != 'dot':
+                 cnt = 0
+                 val_gradients = {}
+@@ -742,15 +835,25 @@ class GRPOGradientAnalyzerParallel:
+                     zero_advantage = False
+             # if self.accelerator.is_main_process:
+             # print(str(self.accelerator.process_index) + " " + str(zero_advantage))
++            prod_sim = None
+             if zero_advantage:# and False:
+                 if self.accelerator.is_main_process:
+                     print(f"Skipping group {group_id} because all advantages are 0")
+                 group_loss = 0.0
+                 similarity = 0.0
+                 distribution = {}
++                if self.mode == 'prod':
++                    prod_sim = 0.0
++            elif self.mode == 'prod':
++                # Forward-only: sketched last-layer policy-gradient cosine. No backward.
++                group_prod = self._compute_prod_feature(group_data, normalize=True)
++                similarity = float(torch.dot(val_prod, group_prod).item())
++                prod_sim = similarity
++                group_loss = 0.0  # loss is not computed in prod mode (forward-only)
++                distribution = {}
+             else:
+                 group_loss, group_gradients, norm_sq = self.compute_loss_and_gradients_distributed(group_data, perform_norm=(self.mode != 'dot'))
+-                
++
+                 # Compute global dot product and per-module distribution
+                 if self.mode !='norm':
+                     similarity, distribution = self.compute_cosine_similarity_distributed(val_gradients, group_gradients)
+@@ -760,11 +863,14 @@ class GRPOGradientAnalyzerParallel:
+             # Only main process collects, prints, and saves results
+             if self.accelerator.is_main_process:
+                 all_similarities[group_id] = similarity
+-                print(f"Group {group_id}: loss={group_loss:.4f}, similarity={similarity:.4f}")
+-                
++                if prod_sim is not None:
++                    print(f"Group {group_id}: loss={group_loss:.4f}, similarity={similarity:.4f}, prod_similarity={prod_sim:.4f}")
++                else:
++                    print(f"Group {group_id}: loss={group_loss:.4f}, similarity={similarity:.4f}")
++
+                 # Save result incrementally if output path is provided
+                 if output_path:
+-                    self.save_result_incrementally(group_id, similarity, group_loss, output_path, distribution)
++                    self.save_result_incrementally(group_id, similarity, group_loss, output_path, distribution, prod_similarity=prod_sim)
+             
+             # Synchronize all processes before moving to next group
+             self.accelerator.wait_for_everyone()
+@@ -811,6 +917,13 @@ class GRPOGradientAnalyzerParallel:
+         world_size = self.accelerator.num_processes
+         rank = self.accelerator.process_index
+ 
++        # Single-process fast path: torch.distributed is not initialized under
++        # a non-distributed accelerate config, so skip the collectives and use
++        # the same deterministic sort locally.
++        if world_size == 1:
++            real_items.sort(key=lambda it: (int(it['group_id']), it['input_ids'].shape[0]))
++            return real_items
++
+         merged_unique = None
+ 
+         # Gather objects on rank 0
+diff --git a/select/parallel/launch_parallel_analysis.py b/select/parallel/launch_parallel_analysis.py
+index 57b9355..9cfb60e 100755
+--- a/select/parallel/launch_parallel_analysis.py
++++ b/select/parallel/launch_parallel_analysis.py
+@@ -11,7 +11,33 @@ import os
+ 
+ 
+ def create_accelerate_config(num_gpus: int = 8, mixed_precision: str = "bf16"):
+-    """Create accelerate configuration for FSDP training."""
++    """Create accelerate configuration for FSDP training.
++
++    env: single-node adaptation — with a single process, FSDP with
++    use_orig_params (torch 2.7.1, accelerate 1.8, transformers 4.53) fails at
++    the first forward in _writeback_orig_params ("Cannot writeback when the
++    parameter shape changes"). For num_gpus == 1 this emits a plain
++    non-distributed config: same device, same bf16 numerics, identical
++    named_parameters/.grad semantics. Multi-GPU keeps the original FSDP config.
++    """
++    if num_gpus == 1:
++        return f"""compute_environment: LOCAL_MACHINE
++debug: false
++distributed_type: 'NO'
++downcast_bf16: 'no'
++enable_cpu_affinity: false
++machine_rank: 0
++main_training_function: main
++{f"mixed_precision: {mixed_precision}" if mixed_precision != "None" else ""}
++num_machines: 1
++num_processes: 1
++rdzv_backend: static
++same_network: true
++tpu_env: []
++tpu_use_cluster: false
++tpu_use_sudo: false
++use_cpu: false
++"""
+     config = f"""compute_environment: LOCAL_MACHINE
+ debug: false
+ distributed_type: FSDP
+@@ -117,12 +143,12 @@ def main():
+ 
+     # Ensure shards for both train and val
+     if not _shards_exist(args.train_responses_dir, args.num_gpus):
+-        _run_prepare(args.train_responses_dir, args.model_path, args.num_gpus, args.max_length, 128)
++        _run_prepare(args.train_responses_dir, args.model_path, args.num_gpus, args.max_length, int(os.environ.get('GRADALIGN_PREPARE_WORKERS', '128')))  # tokenizer processes (released: 128)
+     else:
+         print(f"Train shards already present under {args.train_responses_dir}; skipping prepare")
+ 
+     if not _shards_exist(args.val_responses_dir, args.num_gpus):
+-        _run_prepare(args.val_responses_dir, args.model_path, args.num_gpus, args.max_length, 128)
++        _run_prepare(args.val_responses_dir, args.model_path, args.num_gpus, args.max_length, int(os.environ.get('GRADALIGN_PREPARE_WORKERS', '128')))
+     else:
+         print(f"Val shards already present under {args.val_responses_dir}; skipping prepare")
+     
+diff --git a/select/parallel/prod_feature.py b/select/parallel/prod_feature.py
+new file mode 100644
+index 0000000..905a831
+--- /dev/null
++++ b/select/parallel/prod_feature.py
+@@ -0,0 +1,234 @@
++"""
++PROD: sketched forward-only last-layer (lm_head) policy-gradient features.
++
++Math
++----
++The analyzer's per-mini-batch loss (grpo_grad_analyze_parallel.py) is
++
++    L_mb = 8 * ( - sum_t adv_i(t) * ratio_t * mask_t ) / sum_{t in mb} mask_t,
++
++with ratio_t = exp(logpi_t - detach(logpi_t)) = 1 (old_log_probs are detached),
++so the accumulated lm_head.weight gradient over a dataset D is exactly
++
++    G(D) = sum_mb sum_t w_t * (softmax(logits_t) - onehot(y_t)) (x) h_t,
++    w_t  = 8 * adv_i(t) * mask_t / sum_{t' in mb} mask_{t'},
++
++where y_t is the rollout token at shifted position t, h_t is the last hidden
++state (post final norm) that PRODUCES logits_t, and mask is the analyzer's
++effective response mask: the stored (already shifted) response_mask with its
++first column dropped (the analyzer applies new_log_probs[..., 1:] and
++response_mask[..., 1:]); we replicate that by zeroing column 0.
++
++PROD sketches G with a two-sided Rademacher sketch:
++
++    F(D) = R_v^T G(D) R_h  in R^{d1 x d2},  flattened to d1*d2 = 8192,
++    R_v in {+-1/sqrt(d1)}^{V x d1}  (vocab side,  d1 = 64),
++    R_h in {+-1/sqrt(d2)}^{H x d2}  (hidden side, d2 = 128),
++
++built once from a torch CPU generator with seed 0 (R_v is drawn FIRST, then
++R_h, from the same generator; changing the draw order changes the sketch) and
++cached on device. E[R_v R_v^T] = I_V and E[R_h R_h^T] = I_H, so
++E[<F1, F2>] = <G1, G2> and cosine(F1, F2) ~= cosine(G1, G2) up to JL noise.
++
++Everything is forward-only (torch.no_grad). softmax @ R_v is computed in fp32
++chunks of <= 512 response tokens to avoid materializing a (B, T, V) fp32
++tensor; this follows the commented chunked-lm_head template in
++select/parallel/grpo_loss.py (lines ~144-220).
++
++Divergence from that template: the code
++reuses the logits produced by the model forward instead of re-projecting
++hidden @ lm_head.weight.T, because under FSDP the lm_head weight is sharded
++outside forward and not directly accessible. The numerics are identical since
++outputs.logits == lm_head(outputs.hidden_states[-1]).
++"""
++
++import math
++from typing import Dict, List
++
++import torch
++
++from grpo_utils import collate_batch
++
++# Feature mode. Without GRADALIGN_PROD_SKETCH the score is the EXACT output-layer
++# block of the analyzer's gradient, G(D) in R^{V x H} as written above, compared by
++# cosine with no random projection. GRADALIGN_PROD_SKETCH=1 selects the two-sided
++# Rademacher sketch F(D) (64 x 128 entries), which the LESSER recipes use.
++import os
++PROD_USE_SKETCH = os.environ.get("GRADALIGN_PROD_SKETCH", "0") == "1"
++
++# Sketch hyperparameters (fixed; part of the PROD definition).
++PROD_D_VOCAB = 64      # d1: vocab-side sketch dimension
++PROD_D_HIDDEN = 128    # d2: hidden-side sketch dimension
++PROD_SKETCH_SEED = 0   # torch CPU generator seed
++PROD_TOKEN_CHUNK = 512  # max response tokens whose fp32 softmax is materialized at once
++
++
++class ProdSketch:
++    """Two-sided Rademacher sketch matrices, built once and cached on device."""
++
++    def __init__(
++        self,
++        vocab_size: int,
++        hidden_size: int,
++        device: torch.device,
++        d_vocab: int = PROD_D_VOCAB,
++        d_hidden: int = PROD_D_HIDDEN,
++        seed: int = PROD_SKETCH_SEED,
++    ):
++        if vocab_size <= 0 or hidden_size <= 0:
++            raise ValueError(
++                f"ProdSketch needs positive dims, got vocab_size={vocab_size}, hidden_size={hidden_size}"
++            )
++        self.vocab_size = vocab_size
++        self.hidden_size = hidden_size
++        self.d_vocab = d_vocab
++        self.d_hidden = d_hidden
++        self.seed = seed
++        self.exact = not PROD_USE_SKETCH
++        if self.exact:
++            # Exact mode: the feature is the dense (V, H) gradient block itself.
++            self.feature_dim = vocab_size * hidden_size
++            self.R_v = None
++            self.R_h = None
++            return
++        self.feature_dim = d_vocab * d_hidden
++
++        gen = torch.Generator(device="cpu")
++        gen.manual_seed(seed)
++        # Draw order matters for reproducibility: R_v FIRST, then R_h.
++        rv_bits = torch.randint(0, 2, (vocab_size, d_vocab), generator=gen, dtype=torch.int8)
++        rh_bits = torch.randint(0, 2, (hidden_size, d_hidden), generator=gen, dtype=torch.int8)
++        self.R_v = ((rv_bits.to(torch.float32) * 2.0) - 1.0) / math.sqrt(d_vocab)
++        self.R_h = ((rh_bits.to(torch.float32) * 2.0) - 1.0) / math.sqrt(d_hidden)
++        self.R_v = self.R_v.to(device)
++        self.R_h = self.R_h.to(device)
++
++
++def l2_normalize_feature(feat: torch.Tensor) -> torch.Tensor:
++    """L2-normalize a PROD feature.
++
++    Mirrors the gradient path's convention (norm + 1e-5 in the denominator,
++    see compute_loss_and_gradients_distributed), so an exactly-zero feature
++    stays exactly zero and its dot with anything is 0.0.
++    """
++    return feat / (feat.norm() + 1e-5)
++
++
++def _accumulate_prod_tokens_(feat: torch.Tensor, hidden: torch.Tensor,
++                             logits: torch.Tensor, labels: torch.Tensor,
++                             weights: torch.Tensor, sketch: ProdSketch) -> None:
++    """Accumulate response-token contributions into an explicit output buffer."""
++    probs = torch.softmax(logits.to(torch.float32), dim=-1)
++    if sketch.exact:
++        probs[torch.arange(len(labels), device=labels.device), labels] -= 1.0
++        feat += (probs * weights.unsqueeze(-1)).T @ hidden.to(torch.float32)
++    else:
++        r_proj = probs @ sketch.R_v - sketch.R_v[labels]
++        h_proj = hidden.to(torch.float32) @ sketch.R_h
++        feat += (r_proj * weights.unsqueeze(-1)).T @ h_proj
++
++
++@torch.no_grad()
++def compute_prod_feature_distributed(
++    model: torch.nn.Module,
++    accelerator,
++    batch_data: List[Dict[str, torch.Tensor]],
++    mini_batch_size: int,
++    sketch: ProdSketch,
++    pad_token_id: int,
++    token_chunk_size: int = PROD_TOKEN_CHUNK,
++) -> torch.Tensor:
++    """Compute the last-layer policy-gradient feature (G(D) or its sketch F(D)) for a dataset shard.
++
++    Handles advantages / response_mask exactly like the gradient path
++    (compute_loss_and_gradients_distributed): the same mini-batching, the same
++    per-mini-batch mask normalization, the same x8 constant, and the same extra
++    [..., 1:] shift of the stored response mask.
++
++    Each rank passes its LOCAL shard; the returned feature is all-reduce SUMMED
++    across ranks (the gradient path's FSDP mean-reduction differs only by a
++    constant 1/world_size, which cancels in cosine similarity). Returned
++    feature is the raw (unnormalized) flattened Tensor[d1*d2] (sketch) or
++    Tensor[V*H] (exact) in fp32 on accelerator.device. A dataset whose weights are all zero (e.g. a
++    zero-advantage group) yields an EXACTLY-zero feature.
++    """
++    device = accelerator.device
++    if sketch.exact:
++        feat = torch.zeros(sketch.vocab_size, sketch.hidden_size, device=device, dtype=torch.float32)
++    else:
++        feat = torch.zeros(sketch.d_vocab, sketch.d_hidden, device=device, dtype=torch.float32)
++
++    for i in range(0, len(batch_data), mini_batch_size):
++        mini_batch = batch_data[i : i + mini_batch_size]
++        for item in mini_batch:
++            if "advantages" not in item:
++                raise KeyError(
++                    "PROD: batch entry missing 'advantages'; refusing to default it "
++                    "(entries must be prepared like the gradient path)"
++                )
++        padded = collate_batch(mini_batch, pad_token_id)
++
++        input_ids = padded["input_ids"].to(device)              # (B, L)
++        attention_mask = padded["attention_mask"].to(device)    # (B, L)
++        response_mask = padded["response_mask"].to(device)      # (B, L-1), already shifted
++        advantages = padded["advantages"].to(device=device, dtype=torch.float32)  # (B,)
++
++        B, L = input_ids.shape
++        if response_mask.shape != (B, L - 1):
++            raise ValueError(
++                f"PROD: expected shifted response_mask of shape {(B, L - 1)}, got {tuple(response_mask.shape)}"
++            )
++        if L < 2 or response_mask.shape[1] == 0:
++            continue
++
++        # Replicate the analyzer's extra shift (new_log_probs[..., 1:] /
++        # response_mask[..., 1:]) by zeroing column 0: identical loss terms and
++        # identical normalization constant sum(mask[..., 1:]).
++        mask = response_mask.to(torch.float32).clone()
++        mask[:, 0] = 0.0
++        mask_sum = mask.sum()
++        if mask_sum.item() <= 0:
++            continue
++
++        # w_t = 8 * adv_i * mask_t / sum(mask) with the mini-batch-local denominator,
++        # exactly like compute_policy_loss (per-mini-batch normalization) * 8.
++        weights = (8.0 * advantages.unsqueeze(-1) * mask) / mask_sum  # (B, L-1)
++        if not torch.any(weights != 0):
++            continue
++
++        outputs = model(
++            input_ids=input_ids,
++            attention_mask=attention_mask,
++            output_hidden_states=True,
++            use_cache=False,
++        )
++        hidden = outputs.hidden_states[-1]  # (B, L, H), post final norm: produces the logits
++        logits = outputs.logits             # (B, L, V)
++        H = hidden.shape[-1]
++        V = logits.shape[-1]
++        if V != sketch.vocab_size or H != sketch.hidden_size:
++            raise ValueError(
++                f"PROD: sketch dims (V={sketch.vocab_size}, H={sketch.hidden_size}) do not match "
++                f"model outputs (V={V}, H={H})"
++            )
++
++        # Position alignment: hidden[:, t, :] produces logits[:, t, :] which score
++        # label input_ids[:, t+1]; the shifted mask column t refers to that label.
++        h_flat = hidden[:, :-1, :].reshape(-1, H)        # (B*(L-1), H)
++        logit_flat = logits[:, :-1, :].reshape(-1, V)    # (B*(L-1), V)
++        labels_flat = input_ids[:, 1:].reshape(-1)       # (B*(L-1),)
++        w_flat = weights.reshape(-1)                     # (B*(L-1),)
++
++        nz = torch.nonzero(w_flat, as_tuple=False).squeeze(-1)
++        if nz.numel() == 0:
++            continue
++
++        # Chunk the fp32 softmax over response tokens to avoid a (B, T, V) fp32 tensor.
++        for s in range(0, nz.numel(), token_chunk_size):
++            idx = nz[s : s + token_chunk_size]
++            _accumulate_prod_tokens_(feat, h_flat[idx], logit_flat[idx],
++                                     labels_flat[idx], w_flat[idx], sketch)
++
++    # All ranks must reach this collective even with empty local shards.
++    feat = accelerator.reduce(feat, reduction="sum")
++    return feat.reshape(-1)
+diff --git a/verl/README.md b/verl/README.md
+new file mode 100644
+index 0000000..be0fa90
+--- /dev/null
++++ b/verl/README.md
+@@ -0,0 +1 @@
++# verl (vendored fork; README stub added for pip editable build)
+diff --git a/verl/verl/utils/fsdp_utils.py b/verl/verl/utils/fsdp_utils.py
+index a14e90f..9b0d48f 100755
+--- a/verl/verl/utils/fsdp_utils.py
++++ b/verl/verl/utils/fsdp_utils.py
+@@ -96,7 +96,6 @@ def get_fsdp_wrap_policy(module, config=None, is_lora=False):
+     fsdp_transformer_layer_cls_to_wrap = _get_attr(
+         "transformer_layer_cls_to_wrap", default_transformer_cls_names_to_wrap
+     )
+-    fsdp_transformer_layer_cls_to_wrap = ['Gemma3DecoderLayer']
+     min_num_params = _get_attr("min_num_params", 0)
+     auto_wrap_policy = None
+ 
+diff --git a/verl/verl/utils/model.py b/verl/verl/utils/model.py
+index 15fdecd..f7c4abc 100755
+--- a/verl/verl/utils/model.py
++++ b/verl/verl/utils/model.py
+@@ -627,6 +627,19 @@ def patch_valuehead_model(model) -> None:
+     model._no_split_modules = getattr(model.pretrained_model, "_no_split_modules", [])
+ 
+ 
++def default_attn_implementation() -> str:
++    """env: single-node adaptation — use flash_attention_2 when the flash_attn package
++    is installed and sdpa otherwise. VERL_ATTN_IMPL overrides."""
++    impl = os.environ.get("VERL_ATTN_IMPL")
++    if impl:
++        return impl
++    import importlib.util
++
++    if importlib.util.find_spec("flash_attn") is not None:
++        return "flash_attention_2"
++    return "sdpa"
++
++
+ def load_valuehead_model(local_path, torch_dtype, model_config, trust_remote_code):
+     from transformers import AutoModelForCausalLM, AutoModelForTokenClassification, AutoModelForVision2Seq
+ 
+@@ -635,7 +648,7 @@ def load_valuehead_model(local_path, torch_dtype, model_config, trust_remote_cod
+             pretrained_model_name_or_path=local_path,
+             torch_dtype=torch_dtype,
+             config=model_config,
+-            attn_implementation="flash_attention_2",
++            attn_implementation=default_attn_implementation(),
+             trust_remote_code=trust_remote_code,
+         )
+         return model
+@@ -657,7 +670,7 @@ def load_valuehead_model(local_path, torch_dtype, model_config, trust_remote_cod
+         pretrained_model_name_or_path=local_path,
+         torch_dtype=torch_dtype,
+         config=model_config,
+-        attn_implementation="flash_attention_2",
++        attn_implementation=default_attn_implementation(),
+         trust_remote_code=trust_remote_code,
+     )
+     model = AutoModelForCausalLMWithValueHead.from_pretrained(ori_model)
+diff --git a/verl/verl/utils/reward_score/countdown_mixed_reward.py b/verl/verl/utils/reward_score/countdown_mixed_reward.py
+new file mode 100644
+index 0000000..6ecf429
+--- /dev/null
++++ b/verl/verl/utils/reward_score/countdown_mixed_reward.py
+@@ -0,0 +1,36 @@
++"""Verl-compatible reward for the mixed Countdown/WebInstruct/DAPO pool.
++
++Countdown items carry the full problem statement in reward_model.ground_truth (the
++repo's shipped countdown_judge parses nums and target from any string containing the
++problem template), so this wrapper can route them to judge_countdown. All other items
++use the repo's default rule path (last boxed + is_equiv), identical to math_reward's
++rule branch, with no model-judge API dependency.
++"""
++from verl.utils.reward_score.countdown_judge import judge_countdown
++from verl.utils.reward_score.math_reward import last_boxed_only_string, remove_boxed, is_equiv
++
++
++def compute_score(data_source=None, solution_str=None, ground_truth=None,
++                  extra_info=None, task=None, **kwargs) -> float:
++    """Sync, keyword-friendly: matches the naive manager's call
++    compute_score(data_source=..., solution_str=..., ground_truth=..., extra_info=...)
++    and tolerates the prime manager's positional (task, completion, reference, info)."""
++    src = data_source if data_source is not None else task
++    if solution_str is None:  # prime-style positional: (task, completion, reference, info)
++        src, solution_str, ground_truth, extra_info = data_source, task, ground_truth, extra_info
++    if "countdown" in str(src):
++        # The judge evaluates the model's equation string and can raise on malformed
++        # expressions (e.g. TypeError from a tuple-valued expression), which verl treats as
++        # fatal. An equation the judge cannot evaluate is incorrect: score 0.
++        try:
++            ok, _reason = judge_countdown(str(ground_truth), str(solution_str))
++        except Exception:
++            return 0.0
++        return 1.0 if ok else 0.0
++    try:
++        boxed = last_boxed_only_string(solution_str)
++        if boxed is not None and is_equiv(remove_boxed(boxed), str(ground_truth)):
++            return 1.0
++    except Exception:
++        pass
++    return 0.0
+diff --git a/verl/verl/utils/torch_functional.py b/verl/verl/utils/torch_functional.py
+index e644894..4dd0a1b 100755
+--- a/verl/verl/utils/torch_functional.py
++++ b/verl/verl/utils/torch_functional.py
+@@ -160,6 +160,45 @@ def entropy_from_logits_with_chunking(logits: torch.Tensor, chunk_size: int = 20
+     return entropy
+ 
+ 
++def entropy_from_logits_by_position_chunks(logits: torch.Tensor, chunk_size: int = 512) -> torch.Tensor:
++    """Exact entropy from (batch, positions, vocab) or (positions, vocab) logits
++    without ever materializing a full (positions, vocab) fp32 probability tensor.
++
++    Why this exists: `entropy_from_logits` runs `F.softmax(logits)` in one shot.
++    Under bf16 autocast, softmax/logsumexp are upcast to fp32, so for a
++    (40, 3072, 151936) micro-batch that single call tries to allocate
++    40*3072*151936*4 bytes = 69.55 GiB and OOMs a 96 GiB GPU (in
++    dp_actor compute_log_prob). `entropy_from_logits_with_chunking`
++    does not help here: it chunks dim 0 only (batch=40 -> one chunk) and its
++    output shape is wrong for 3D input.
++
++    This version iterates over at most `chunk_size` positions at a time and
++    computes the fp32 softmax only for the current chunk. Softmax and entropy
++    are independent per position, so this is the same fp32 computation as the
++    unchunked path; only reduction-kernel blocking differs. Measured on GPU
++    (4x257x151936 bf16 slice): max |chunked - unchunked| = 7.6e-06, with both
++    within 1.4e-05 of a float64 reference. Peak extra memory is
++    O(chunk_size * vocab) fp32 (measured 0.87 GiB total op overhead at the
++    production shape) instead of O(positions * vocab).
++    """
++    assert logits.dim() in (2, 3), f"expected (positions, vocab) or (batch, positions, vocab) logits, got shape {tuple(logits.shape)}"
++    squeeze_batch = False
++    if logits.dim() == 2:
++        logits = logits.unsqueeze(0)
++        squeeze_batch = True
++    per_batch_entropy = []
++    for b in range(logits.shape[0]):
++        row = logits[b]  # (positions, vocab) view; no copy
++        chunks = []
++        for i in range(0, row.shape[0], chunk_size):
++            chunk = row[i : i + chunk_size].float()  # (<=chunk_size, vocab) fp32
++            pd = torch.nn.functional.softmax(chunk, dim=-1)
++            chunks.append(torch.logsumexp(chunk, dim=-1) - torch.sum(pd * chunk, dim=-1))
++        per_batch_entropy.append(torch.cat(chunks, dim=0))
++    entropy = torch.stack(per_batch_entropy, dim=0)
++    return entropy.squeeze(0) if squeeze_batch else entropy
++
++
+ def masked_sum(values, mask, axis=None):
+     """Compute mean of tensor with a masked values."""
+     # If NaNs exist out of mask, replace NaNs in values with a value that
+diff --git a/verl/verl/workers/actor/dp_actor.py b/verl/verl/workers/actor/dp_actor.py
+index 7dd531a..ee408c0 100755
+--- a/verl/verl/workers/actor/dp_actor.py
++++ b/verl/verl/workers/actor/dp_actor.py
+@@ -265,10 +265,20 @@ class DataParallelPPOActor(BasePPOActor):
+                     logits = logits[:, -response_length - 1 : -1, :]  # (bsz, response_length, vocab_size)
+                     log_probs = logprobs_from_logits(logits, micro_batch["responses"])
+                     if calculate_entropy:
++                        # Never call the unchunked entropy here: under the bf16
++                        # autocast above, F.softmax upcasts to fp32, so a
++                        # (bsz, response_length, vocab) micro-batch materializes
++                        # a full fp32 probability tensor (69.55 GiB at
++                        # 40 x 3072 x 151936 -> OOM on a 96 GiB GPU).
++                        # The position-chunked version computes the same fp32
++                        # softmax <=512 positions at a time (measured max delta
++                        # 7.6e-06 vs unchunked: pure reduction-order noise).
+                         if not self.config.entropy_checkpointing:
+-                            entropy = verl_F.entropy_from_logits(logits)  # (bsz, response_length)
++                            entropy = verl_F.entropy_from_logits_by_position_chunks(logits)  # (bsz, response_length)
+                         else:
+-                            entropy = torch.utils.checkpoint.checkpoint(verl_F.entropy_from_logits, logits)
++                            entropy = torch.utils.checkpoint.checkpoint(
++                                verl_F.entropy_from_logits_by_position_chunks, logits
++                            )
+ 
+             return entropy, log_probs
+ 
+diff --git a/verl/verl/workers/config/model.py b/verl/verl/workers/config/model.py
+index a5eab8a..8621143 100755
+--- a/verl/verl/workers/config/model.py
++++ b/verl/verl/workers/config/model.py
+@@ -22,7 +22,7 @@ from verl.base_config import BaseConfig
+ from verl.utils import hf_processor, hf_tokenizer
+ from verl.utils.fs import copy_to_local
+ from verl.utils.import_utils import import_external_libs
+-from verl.utils.model import get_generation_config, update_model_config
++from verl.utils.model import default_attn_implementation, get_generation_config, update_model_config
+ 
+ __all__ = ["HFModelConfig"]
+ 
+@@ -115,7 +115,7 @@ class HFModelConfig(BaseConfig):
+         )
+ 
+         # constuct hf_config
+-        attn_implementation = self.override_config.get("attn_implementation", "flash_attention_2")
++        attn_implementation = self.override_config.get("attn_implementation", default_attn_implementation())
+         self.hf_config = AutoConfig.from_pretrained(
+             self.local_hf_config_path, trust_remote_code=self.trust_remote_code, attn_implementation=attn_implementation
+         )
+diff --git a/verl/verl/workers/fsdp_workers.py b/verl/verl/workers/fsdp_workers.py
+index 37de08b..2a42067 100755
+--- a/verl/verl/workers/fsdp_workers.py
++++ b/verl/verl/workers/fsdp_workers.py
+@@ -80,7 +80,7 @@ from verl.utils.fsdp_utils import (
+ )
+ from verl.utils.import_utils import import_external_libs
+ from verl.utils.memory_utils import aggressive_empty_cache
+-from verl.utils.model import compute_position_id_with_mask, convert_weight_keys
++from verl.utils.model import compute_position_id_with_mask, convert_weight_keys, default_attn_implementation
+ from verl.utils.profiler import DistProfiler, DistProfilerExtension, ProfilerConfig, log_gpu_memory_usage, simple_timer
+ from verl.utils.profiler.performance import reduce_timing, topk_reduce_ratio_min_max
+ from verl.utils.py_functional import convert_to_regular_types
+@@ -316,7 +316,7 @@ class ActorRolloutRefWorker(Worker, DistProfilerExtension):
+ 
+         # override model kwargs
+         actor_model_config = AutoConfig.from_pretrained(
+-            local_path, trust_remote_code=trust_remote_code, attn_implementation="flash_attention_2"
++            local_path, trust_remote_code=trust_remote_code, attn_implementation=default_attn_implementation()
+         )
+         # TODO: VL models use VisionAttention, which directly uses flash_attention in transformers>=4.53
+         # which will be patched by _ulysses_flash_attention_forward, but errorly misses position_ids
+@@ -1229,7 +1229,7 @@ class CriticWorker(Worker, DistProfilerExtension):
+ 
+         critic_model_config = AutoConfig.from_pretrained(
+             local_path,
+-            attn_implementation="flash_attention_2",
++            attn_implementation=default_attn_implementation(),
+             trust_remote_code=config.model.get("trust_remote_code", False),
+         )
+         # TODO: VL models use VisionAttention, which directly uses flash_attention in transformers>=4.53
+@@ -1630,7 +1630,7 @@ class RewardModelWorker(Worker, DistProfilerExtension):
+                 pretrained_model_name_or_path=local_path,
+                 config=model_config,
+                 torch_dtype=torch.bfloat16,
+-                attn_implementation="flash_attention_2",
++                attn_implementation=default_attn_implementation(),
+                 trust_remote_code=trust_remote_code,
+             )
+ 

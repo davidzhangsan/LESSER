@@ -1,0 +1,82 @@
+{
+ "llama2_tydiqa": {
+  "shared": 491,
+  "jaccard": 0.05163529288042907
+ },
+ "llama2_mmlu_pro": {
+  "shared": 505,
+  "jaccard": 0.05318588730911006
+ },
+ "llama2_gsm8k": {
+  "shared": 324,
+  "jaccard": 0.033484911120297646
+ },
+ "llama2_codex": {
+  "shared": 214,
+  "jaccard": 0.02186797465767423
+ },
+ "llama2_bbh": {
+  "shared": 228,
+  "jaccard": 0.023331968890708144
+ },
+ "llama3_tydiqa": {
+  "shared": 407,
+  "jaccard": 0.04242676951944126
+ },
+ "llama3_mmlu_pro": {
+  "shared": 433,
+  "jaccard": 0.04525974704714122
+ },
+ "llama3_gsm8k": {
+  "shared": 441,
+  "jaccard": 0.04613453290093106
+ },
+ "llama3_codex": {
+  "shared": 266,
+  "jaccard": 0.027326895418122048
+ },
+ "llama3_bbh": {
+  "shared": 186,
+  "jaccard": 0.01895251681271653
+ },
+ "qwen_tydiqa": {
+  "shared": 594,
+  "jaccard": 0.06315118009780991
+ },
+ "qwen_mmlu_pro": {
+  "shared": 173,
+  "jaccard": 0.01760455886842373
+ },
+ "qwen_gsm8k": {
+  "shared": 337,
+  "jaccard": 0.03487529752664804
+ },
+ "qwen_codex": {
+  "shared": 269,
+  "jaccard": 0.027643613194943992
+ },
+ "qwen_bbh": {
+  "shared": 143,
+  "jaccard": 0.01450745662980623
+ },
+ "olmo3_tydiqa": {
+  "shared": 1004,
+  "jaccard": 0.11160515784793242
+ },
+ "olmo3_mmlu_pro": {
+  "shared": 190,
+  "jaccard": 0.019367991845056064
+ },
+ "olmo3_gsm8k": {
+  "shared": 250,
+  "jaccard": 0.02564102564102564
+ },
+ "olmo3_codex": {
+  "shared": 476,
+  "jaccard": 0.0499790004199916
+ },
+ "olmo3_bbh": {
+  "shared": 182,
+  "jaccard": 0.018537380321857814
+ }
+}

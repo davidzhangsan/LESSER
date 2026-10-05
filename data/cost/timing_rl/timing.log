@@ -1,0 +1,13 @@
+=== 2026-09-25T10:30:56+00:00 start host=<host> gpu=NVIDIA A100 80GB PCIe
+d9ee9937093ff2fbdd1b4dd36430a82abd1840605cb1f678697674abf16f2f66  select/parallel/prod_feature.py
+10357dbf06d8fa8e4c9b6aa7fb378f6237cc4087e686da7f500e08dc07c16581  select/parallel/grpo_grad_analyze_parallel.py
+e22fa04fa3efefbfa53eadb8f279a131cd9062d727b78bfec845f628e7ae9dcd  automated/run_parallel_analysis.py
+layout written: 81920 candidate responses, 3200 query responses
+=== 2026-09-25T10:31:49+00:00 prodsk start (GRADALIGN_PROD_SKETCH=1)
+=== 2026-09-25T10:49:52+00:00 prodsk exit 0 wall_seconds=1083 rows=5120
+=== 2026-09-25T10:49:52+00:00 prod start (GRADALIGN_PROD_SKETCH=0)
+=== 2026-09-25T11:18:59+00:00 prod exit 0 wall_seconds=1747 rows=5120
+=== 2026-09-25T11:19:00+00:00 sim start (GRADALIGN_PROD_SKETCH=0)
+=== 2026-09-25T12:22:20+00:00 sim exit 0 wall_seconds=3800 rows=5120
+{"ingen_vs_prodsk": {"n": 5120, "live": 1794, "spearman_live": 0.9946346573135817, "top256_overlap": 0.96484375}, "ingen_vs_prod": {"n": 5120, "live": 1794, "spearman_live": 0.7807994894047183, "top256_overlap": 0.77734375}, "ingen_vs_sim": {"n": 5120, "live": 1794, "spearman_live": 0.5515110932335656, "top256_overlap": 0.5859375}, "prodsk_vs_prod": {"n": 5120, "live": 1794, "spearman_live": 0.782128725570951, "top256_overlap": 0.76953125}, "prodsk_vs_sim": {"n": 5120, "live": 1794, "spearman_live": 0.5526082612296876, "top256_overlap": 0.5859375}, "prod_vs_sim": {"n": 5120, "live": 1794, "spearman_live": 0.6922758232278841, "top256_overlap": 0.6640625}}
+=== 2026-09-25T12:22:22+00:00 end

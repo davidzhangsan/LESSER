@@ -1,0 +1,137 @@
+{
+ "description": "Raw inputs of the LESSER cost accounting: paper Table 1, the Figure 1 bars, Appendix A.4 and Tables 5 to 8. Paths in 'files' are relative to data/cost/. 'referenced_not_shipped' lists code and data the timing jobs used that are not included here. python -m cost.table1 verifies every listed size and sha256 before computing.",
+ "n_files": 14,
+ "total_bytes": 7501830,
+ "files": {
+  "pool_token_count.json": {
+   "sha256": "08b66005701aaa42be1c8a3593c1601a317a24187acb1da5f651f68ddaebe069",
+   "bytes": 430,
+   "source": "output of the token-count run",
+   "note": "token counts of the 197,196-example pool for the Llama-2 and Llama-3.2 tokenizers; cost/pool_token_count.py reproduces both entries exactly"
+  },
+  "pool_token_count.log": {
+   "sha256": "971b3842cc5e0484ef1eba5b6d7cbd776632331fc1d3bcd6adb77cc7ad45e684",
+   "bytes": 39738,
+   "source": "console output of the token-count run",
+   "note": "progress output and the two result lines"
+  },
+  "sft_flops.json": {
+   "sha256": "e3aa24deb5a67c02733e96996b6851b5aa2f7da7a876287deaecac84440d7cb3",
+   "bytes": 838,
+   "source": "output of the SFT FLOP computation",
+   "note": "the computation behind the paper's SFT FLOP numbers; cost/sft_flops.py reproduces it to a relative 1e-12"
+  },
+  "timing_sft/timing.log": {
+   "sha256": "342d44f0642a6ed36efcc11e01c0e9d1f5ed294de42a865f9e1d80289470da58",
+   "bytes": 1188,
+   "source": "run directory of the SFT timing job",
+   "note": "stage start and end lines with exit codes and wall_seconds, the GPU, and the sha256 of the timed code"
+  },
+  "timing_sft/lesser_prefix.log": {
+   "sha256": "bdaf77c736f025e7b0bff3a949b392b207ab0820772bc629464805173802700d",
+   "bytes": 842,
+   "source": "run directory of the SFT timing job",
+   "note": "output of the LESSER extractor on the 10,000-example prefix"
+  },
+  "timing_sft/less_pi8.log": {
+   "sha256": "586a54cec1c582c7aaa5469113db30a7c4b113a2c6ccc65c2c40e732ae2c7fa0",
+   "bytes": 636375,
+   "source": "run directory of the SFT timing job",
+   "note": "output of released LESS at projection interval 8 (the paper's LESS time)"
+  },
+  "timing_sft/less_pi16.log": {
+   "sha256": "c92b3555fbbfeaa8f012eb07f9b9a5098f6851949a11e186dc21601522d20f6f",
+   "bytes": 635899,
+   "source": "run directory of the SFT timing job",
+   "note": "output of released LESS at projection interval 16"
+  },
+  "timing_rl/timing.log": {
+   "sha256": "7c3458085a4a347ec3d1fb111a4db7c2d5d94993b3e1ea41be973a28d992f03e",
+   "bytes": 1559,
+   "source": "run directory of the RL timing job",
+   "note": "start and exit lines with exit codes, wall_seconds and scored groups for the three scorer variants"
+  },
+  "timing_rl/agreement.json": {
+   "sha256": "d713889d430e196f75d676924781eda9fd4f705b0331c7f007380243d61b77f4",
+   "bytes": 736,
+   "source": "run directory of the RL timing job",
+   "note": "ranking agreement between the scorer variants and the in-generation scores"
+  },
+  "timing_rl/prodsk.log": {
+   "sha256": "e0d6a8bb8cab7de8077f3aa9c526ab7856940a6a499c80df46427926c1da71b6",
+   "bytes": 1700039,
+   "source": "run directory of the RL timing job",
+   "note": "scorer output, projected LESSER feature"
+  },
+  "timing_rl/prod.log": {
+   "sha256": "a92c34fdcfb3613ed70f9814d99ff6735e2b98220f2b739027226c6cd3ca9380",
+   "bytes": 1691784,
+   "source": "run directory of the RL timing job",
+   "note": "scorer output, exact LESSER feature"
+  },
+  "timing_rl/sim.log": {
+   "sha256": "6add825da32f97ef03d3300c553e73cbf792189d6ae436433dba0cd5ba5de698",
+   "bytes": 2738621,
+   "source": "run directory of the RL timing job",
+   "note": "scorer output, full gradients"
+  },
+  "timing_grace/timing.json": {
+   "sha256": "4c91993022ffa9611b9d00e32416486d53fd6090060ab99b921fefab7f4c7000",
+   "bytes": 50402,
+   "source": "run directory of the GRACE timing job",
+   "note": "per-response times, peak memory and correctness cosines of the GRACE timing harness"
+  },
+  "timing_grace/grace_timing.log": {
+   "sha256": "da176642265ee7a3ad4939cbfb5f289beac2155d22cc8bf743d5ae60c78b43c4",
+   "bytes": 3379,
+   "source": "log of the GRACE timing job",
+   "note": "harness output: correctness checks and per-setting summary lines"
+  }
+ },
+ "referenced_not_shipped": {
+  "released LESS extractor": {
+   "sha256": "8823842a30201ff444f0c636bb0b8dc94799ac4ab9761e8d1a407ba2efed3ddb",
+   "note": "representation/less/compute_less_embeds.py of github.com/dcml-lab/targeted-instruction-selection at commit 8ff397ad1c6e649465948a7ce847cb003140224c (Apache-2.0), unchanged; timed by the SFT timing job at projection interval 8; sha256 recorded in timing_sft/timing.log"
+  },
+  "released LESS extractor at projection interval 16": {
+   "sha256": "3fe5d863f7953907618c73199429cb9d385b73e595fac874018bc01fd2e8b610",
+   "note": "the released LESS extractor with the default project_interval changed from 8 to 16, the only difference; sha256 recorded in timing_sft/timing.log"
+  },
+  "LESSER SFT extractor": {
+   "sha256": "4c61256d652a897a337b3e8b895ae92a679ee52a04f464b1bd22b3df94ee4061",
+   "note": "LESSER SFT extractor timed by the SFT timing job; sha256 recorded in timing_sft/timing.log"
+  },
+  "LESSER SFT extractor, residual-feature module": {
+   "sha256": "a5d603bac1cbda7f5d9b0041e425cc2ca3f932a47b35b33c1ff3f2cef95b0c13",
+   "note": "module the LESSER SFT extractor imports; sha256 recorded in timing_sft/timing.log"
+  },
+  "LESS warmup checkpoint 316 of Llama-2-7B": {
+   "sha256": null,
+   "note": "LoRA adapter and Adam optimizer state that the timed LESS extraction loads"
+  },
+  "GradAlign scorer: select/parallel/prod_feature.py": {
+   "sha256": "d9ee9937093ff2fbdd1b4dd36430a82abd1840605cb1f678697674abf16f2f66",
+   "note": "RL scorer code timed by the RL timing job; sha256 recorded in timing_rl/timing.log"
+  },
+  "GradAlign scorer: select/parallel/grpo_grad_analyze_parallel.py": {
+   "sha256": "10357dbf06d8fa8e4c9b6aa7fb378f6237cc4087e686da7f500e08dc07c16581",
+   "note": "RL scorer code timed by the RL timing job; sha256 recorded in timing_rl/timing.log"
+  },
+  "GradAlign scorer: automated/run_parallel_analysis.py": {
+   "sha256": "e22fa04fa3efefbfa53eadb8f279a131cd9062d727b78bfec845f628e7ae9dcd",
+   "note": "RL scorer entry point timed by the RL timing job; sha256 recorded in timing_rl/timing.log"
+  },
+  "re-scored RL responses of one selection round": {
+   "sha256": null,
+   "note": "the 81,920 candidate and 3,200 query responses that the RL timing job re-scored (681 MB); their summary.json has sha256 669496765b3954f38f98cea7289f5d0b755366340ed78aa954c41f6293121321"
+  },
+  "GRACE pipeline: GRACE/gradient_computation.py": {
+   "sha256": "6cb3ccb84eff914ee723956a87ecbbb7ed6fd4bf1ecc10dbea9d6200f6f98891",
+   "note": "GRACE pipeline module whose feature functions the GRACE timing harness timed; the job log records the first 16 hex digits"
+  },
+  "GRACE timing inputs (inputs.pt)": {
+   "sha256": "e6f8b75916c986a99ac21b100c50573c188a8b6f4e291dbdb8a22e92cdb581a5",
+   "note": "token ids and stored ranking features of the 1,088 timed responses (12,853,286 bytes)"
+  }
+ }
+}

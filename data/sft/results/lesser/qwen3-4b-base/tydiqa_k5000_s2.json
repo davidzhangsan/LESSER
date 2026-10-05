@@ -1,0 +1,12 @@
+{
+  "model": "qwen3-4b",
+  "method": "baseprod",
+  "task": "tydiqa",
+  "budget": 5000,
+  "seed": 2,
+  "metric_name": "f1",
+  "metric_value": 73.38119701680476,
+  "n_selected": 5000,
+  "base_model": "Qwen/Qwen3-4B-Base",
+  "env": "workstation"
+}

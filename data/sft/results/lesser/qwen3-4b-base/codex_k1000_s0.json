@@ -1,0 +1,12 @@
+{
+  "model": "qwen3-4b",
+  "method": "baseprod",
+  "task": "codex",
+  "budget": 1000,
+  "seed": 0,
+  "metric_name": "pass@10",
+  "metric_value": 89.1891891891892,
+  "n_selected": 1000,
+  "base_model": "Qwen/Qwen3-4B-Base",
+  "env": "workstation"
+}

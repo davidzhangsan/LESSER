@@ -1,0 +1,1 @@
+{"task": "bbh", "bin": 2, "ce_loss": 0.28341071737677226, "model": "meta-llama/Llama-2-7b-hf", "convention": "mean over dev queries of construct_test_sample CE"}

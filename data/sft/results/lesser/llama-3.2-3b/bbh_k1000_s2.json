@@ -1,0 +1,12 @@
+{
+  "model": "llama",
+  "method": "baseprod",
+  "task": "bbh",
+  "budget": 1000,
+  "seed": 2,
+  "metric_name": "average_exact_match",
+  "metric_value": 48.13082857718844,
+  "n_selected": 1000,
+  "base_model": "meta-llama/Llama-3.2-3B",
+  "env": "workstation"
+}

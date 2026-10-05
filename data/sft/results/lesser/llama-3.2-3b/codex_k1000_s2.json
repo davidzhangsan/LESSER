@@ -1,0 +1,12 @@
+{
+  "model": "llama",
+  "method": "baseprod",
+  "task": "codex",
+  "budget": 1000,
+  "seed": 2,
+  "metric_name": "pass@10",
+  "metric_value": 63.51351351351351,
+  "n_selected": 1000,
+  "base_model": "meta-llama/Llama-3.2-3B",
+  "env": "workstation"
+}

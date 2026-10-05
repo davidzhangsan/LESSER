@@ -1,0 +1,18 @@
+{
+ "meta-llama/Llama-2-7b-hf": {
+  "examples": 197196,
+  "tokens": 86343509,
+  "response_tokens": 25430302,
+  "mean_tokens": 437.85629018844196,
+  "response_share": 0.2945247685034436,
+  "truncated_at_2048": 2196
+ },
+ "meta-llama/Llama-3.2-3B": {
+  "examples": 197196,
+  "tokens": 74384084,
+  "response_tokens": 22130256,
+  "mean_tokens": 377.2088886184304,
+  "response_share": 0.2975133228769746,
+  "truncated_at_2048": 1366
+ }
+}

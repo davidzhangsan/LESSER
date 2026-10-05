@@ -1,0 +1,130 @@
+{
+ "description": "Metadata of rl/build_pools.py: pinned upstream files, SHA-256 of the intermediate prepare_data.py and mix.py outputs the pools derive from, and per pool file its SHA-256, size, Parquet content digest (rl/build_pools.py content_digest) and the writer and library versions that produced the original.",
+ "sources": {
+  "countdown": {
+   "repo": "Jiayi-Pan/Countdown-Tasks-3to4",
+   "revision": "408f70d177020686d34a56bba5952feb45aaaee4",
+   "file": "data/train-00000-of-00001.parquet",
+   "bytes": 2845904,
+   "sha256": "a1b37bea0f439c858b11b908daa682e521f13f9592f1866b08650f58b730d126"
+  },
+  "webinstruct": {
+   "repo": "TIGER-Lab/WebInstruct-verified-unfiltered",
+   "revision": "ac48a536b31d3cabb346e1139fb6c69ae631abd7",
+   "file": "data/train-00000-of-00001.parquet",
+   "bytes": 150168610,
+   "sha256": "14103d8dbf664fbac9e72e6e3d4894b4220139207ca1203bf14c9b825aa52ee6"
+  },
+  "dapo": {
+   "repo": "BytedTsinghua-SIA/DAPO-Math-17k",
+   "revision": "65877096c24ffa7abc4e4fa5edb95cf3413a5674",
+   "file": "data/dapo-math-17k.parquet",
+   "bytes": 299363855,
+   "sha256": "534375d6bb8630d22ab46a56e11f2ffec1d288d8f7d04099bc82d68948705941"
+  },
+  "amc": {
+   "repo": "AI-MO/aimo-validation-amc",
+   "revision": "69d78a4a2c840e82d69af6bc742bda09005f6316",
+   "file": "data/train-00000-of-00001.parquet",
+   "bytes": 19141,
+   "sha256": "4de056fd006062cee46e3900727dd5d00094b8592ed0bfd6b5dfae2267f72dd7"
+  }
+ },
+ "licenses": {
+  "countdown": "none stated on the dataset card",
+  "webinstruct": "apache-2.0",
+  "dapo": "apache-2.0",
+  "amc": "apache-2.0"
+ },
+ "intermediates": {
+  "countdown4/train.jsonl": "e9be4be01da591ef493a066fbf965b7b8c877efaabae22dbe1fc5839daef1d3f",
+  "webinstruct/train.jsonl": "7fe53a38565bb41159d4a0d4a3ab73e0706e16e719a2b3fa929267eb9ce6cf60",
+  "dapo/train.jsonl": "cbc79f6fad132006e1c56a2f6cbd30ad1f0189c680581e64a122f3cd0e55a631",
+  "dapo_noisy50/train.jsonl": "13a7478c162de49ab6a737bf445b21f7706fe2f2be4a760baf04cb912bd719ec"
+ },
+ "files": {
+  "cdmix4/train.parquet": {
+   "sha256": "cef90acd44786554ef33586dc006d618072efb7ca725d9b19938385d9b9fc939",
+   "bytes": 14951759,
+   "content_sha256": "d121654c9d29a680097884e2c4976e5a3c7c0581388462e1d728f1a612ffe2aa",
+   "writer": "datasets",
+   "writer_versions": {
+    "datasets": "5.0.0",
+    "pyarrow": "24.0.0"
+   }
+  },
+  "cdmix4/train.jsonl": {
+   "sha256": "63728990a28da92fc888f265e8ae75205f5e87977ce6e6b45fbdeb74f6443616",
+   "bytes": 20481649
+  },
+  "countdown4_val/train.parquet": {
+   "sha256": "57444e1de9afa7c00b24f9c1c420639fbb5bfa70fd1db1d7eb2465cb0367fa21",
+   "bytes": 132875,
+   "content_sha256": "21d4c544834d75fd1ecfd10426e7f95db7af74c9672e06292045722b91619e6e",
+   "writer": "datasets",
+   "writer_versions": {
+    "datasets": "5.0.0",
+    "pyarrow": "24.0.0"
+   }
+  },
+  "countdown4_val/train.jsonl": {
+   "sha256": "77152f014032bce6b9b2e68e602583920e28c0e14f0fb1f5164145f44c174f21",
+   "bytes": 157172
+  },
+  "countdown4_test/train.parquet": {
+   "sha256": "5d3c9184a0dfa3218dbd34597c26a61322f4be0ed43000a5e16e6bd70810553d",
+   "bytes": 38988,
+   "content_sha256": "a856429abbd30d4be7c0d7c4c1cfc4a161427a74c49c301edd2c740460434aff",
+   "writer": "pyarrow_with_val_schema",
+   "writer_versions": {
+    "pyarrow": "21.0.0"
+   }
+  },
+  "countdown4_test/train.jsonl": {
+   "sha256": "c1cd959194857bec6860838951df0d8d4b4be7ebd6cf6d248b143c8b4adc0e4a",
+   "bytes": 392710
+  },
+  "dapo_noisy50_sub512/train.parquet": {
+   "sha256": "717f104c13b3e0e1adf0f0e0022644909e4ff3923ea403d6df8732542a7cf6ef",
+   "bytes": 99891,
+   "content_sha256": "28ef3af90e650e3ffff391ad9c3fdc3679fc44bbde89e72187a0667d9f70e12b",
+   "writer": "pandas",
+   "writer_versions": {
+    "pandas": "3.0.3",
+    "pyarrow": "24.0.0"
+   }
+  },
+  "dapo_noisy50_sub512/train.jsonl": {
+   "sha256": "726af5a383c95d687cfc313b5d3570e79e2ad967325a7ec0b06e3b0a06060e7d",
+   "bytes": 317934
+  },
+  "amc22/train.parquet": {
+   "sha256": "bb6219f3b695fc9d8d4f7defba8f93c846ff78224bfadea20e25d6b2b6b299e4",
+   "bytes": 24377,
+   "content_sha256": "7448d0d6d1a11099c151f486bb1a648ef7f94345c64ae494bbaa38af1a61b75f",
+   "writer": "datasets",
+   "writer_versions": {
+    "datasets": "5.0.0",
+    "pyarrow": "24.0.0"
+   }
+  },
+  "amc22/train.jsonl": {
+   "sha256": "dabb8da932e8dfe1f12a19b67dd148c7ea1cbab293a2e97d5c60cdd4c9dc0ece",
+   "bytes": 26028
+  },
+  "amc23/train.parquet": {
+   "sha256": "2a6b38e94b8e1c02d64c8b59ae75d62e2d74ae80bac2f72fc416a190fa3a8ca9",
+   "bytes": 13276,
+   "content_sha256": "66de260e0a1653898ff68895522256edef5df57ca4555939ef2bc822649e4fb8",
+   "writer": "datasets",
+   "writer_versions": {
+    "datasets": "4.1.1",
+    "pyarrow": "21.0.0"
+   }
+  },
+  "amc23/train.jsonl": {
+   "sha256": "3e30c27767cd8fe2cbe5819bd4e48458532da4c035dde2be2e43eca5d68e5fe3",
+   "bytes": 22463
+  }
+ }
+}

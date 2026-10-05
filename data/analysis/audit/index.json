@@ -1,0 +1,704 @@
+{
+ "llama2_tydiqa": {
+  "n": 3000,
+  "n_layers": 32,
+  "global_blocks": [
+   "embedding",
+   "final_norm",
+   "output_head"
+  ],
+  "audit_seed": 0,
+  "candidate_slices": [
+   [
+    0,
+    3000
+   ]
+  ],
+  "n_queries": 9,
+  "L0": 1.3228238589233823,
+  "gq_norm_head": 11.152979694808465,
+  "gq_norm_full": 44.676468374044504,
+  "runner_sha256": "0debf2e1c7103862e16bbbdfc2b5240354c4ea88f61624787e278bf6b35042bb",
+  "torch": "2.5.1+cu121",
+  "transformers": "4.56.2",
+  "sources": {
+   "llama2_tydiqa_0_3000.json": "f5329e92f9a78c2216c8e40eb7e42789827b974d9f4fad910e97f6bce835948e"
+  }
+ },
+ "llama2_mmlu_pro": {
+  "n": 3000,
+  "n_layers": 32,
+  "global_blocks": [
+   "embedding",
+   "final_norm",
+   "output_head"
+  ],
+  "audit_seed": 0,
+  "candidate_slices": [
+   [
+    0,
+    3000
+   ]
+  ],
+  "n_queries": 70,
+  "L0": 1.922430283682687,
+  "gq_norm_head": 5.426352269119189,
+  "gq_norm_full": 10.383109053643908,
+  "runner_sha256": "0debf2e1c7103862e16bbbdfc2b5240354c4ea88f61624787e278bf6b35042bb",
+  "torch": "2.5.1+cu121",
+  "transformers": "4.56.2",
+  "sources": {
+   "llama2_mmlu_pro_0_3000.json": "ec04f081e0ae48370541ac2d4c40e82dad27ca62ada810d6a42d9e39fff810c0"
+  }
+ },
+ "llama2_gsm8k": {
+  "n": 3000,
+  "n_layers": 32,
+  "global_blocks": [
+   "embedding",
+   "final_norm",
+   "output_head"
+  ],
+  "audit_seed": 0,
+  "candidate_slices": [
+   [
+    0,
+    3000
+   ]
+  ],
+  "n_queries": 8,
+  "L0": 0.9569902345538139,
+  "gq_norm_head": 8.607986163786704,
+  "gq_norm_full": 14.511469507183861,
+  "runner_sha256": "0debf2e1c7103862e16bbbdfc2b5240354c4ea88f61624787e278bf6b35042bb",
+  "torch": "2.5.1+cu121",
+  "transformers": "4.56.2",
+  "sources": {
+   "llama2_gsm8k_0_3000.json": "f2c1f32c1487c7934dced97db82488df346e9729564665b5ac6b739b0158867e"
+  }
+ },
+ "llama2_codex": {
+  "n": 3000,
+  "n_layers": 32,
+  "global_blocks": [
+   "embedding",
+   "final_norm",
+   "output_head"
+  ],
+  "audit_seed": 0,
+  "candidate_slices": [
+   [
+    0,
+    3000
+   ]
+  ],
+  "n_queries": 16,
+  "L0": 0.9510870613157749,
+  "gq_norm_head": 7.688041969071941,
+  "gq_norm_full": 16.697109248188326,
+  "runner_sha256": "0debf2e1c7103862e16bbbdfc2b5240354c4ea88f61624787e278bf6b35042bb",
+  "torch": "2.5.1+cu121",
+  "transformers": "4.56.2",
+  "sources": {
+   "llama2_codex_0_3000.json": "47b7f042afb18dbfe8db31c15e6b70e8612e732b8f7c35d97258c7dbc8cddbec"
+  }
+ },
+ "llama2_bbh": {
+  "n": 3000,
+  "n_layers": 32,
+  "global_blocks": [
+   "embedding",
+   "final_norm",
+   "output_head"
+  ],
+  "audit_seed": 0,
+  "candidate_slices": [
+   [
+    0,
+    3000
+   ]
+  ],
+  "n_queries": 81,
+  "L0": 0.29565038932142435,
+  "gq_norm_head": 1.3491411443340393,
+  "gq_norm_full": 2.1970147405646956,
+  "runner_sha256": "0debf2e1c7103862e16bbbdfc2b5240354c4ea88f61624787e278bf6b35042bb",
+  "torch": "2.5.1+cu121",
+  "transformers": "4.56.2",
+  "sources": {
+   "llama2_bbh_0_3000.json": "40bf21325e4bad43144a0bdc437ac6f55fea54426f668760074005b9b58c2150"
+  }
+ },
+ "llama3_tydiqa": {
+  "n": 3000,
+  "n_layers": 28,
+  "global_blocks": [
+   "shared_input_output",
+   "final_norm"
+  ],
+  "audit_seed": 7,
+  "candidate_slices": [
+   [
+    0,
+    3000
+   ]
+  ],
+  "n_queries": 9,
+  "L0": 2.661441597673628,
+  "gq_norm_head": 12.502997321678096,
+  "gq_norm_full": 99.53094108138785,
+  "runner_sha256": "0debf2e1c7103862e16bbbdfc2b5240354c4ea88f61624787e278bf6b35042bb",
+  "torch": "2.9.1+cu128",
+  "transformers": "4.56.2",
+  "sources": {
+   "llama3_tydiqa_0_3000.json": "49b20d6299f5fa9fefc2f47393630fba01b527097afe6f830cc13b5f34f21c81"
+  }
+ },
+ "llama3_mmlu_pro": {
+  "n": 3000,
+  "n_layers": 28,
+  "global_blocks": [
+   "shared_input_output",
+   "final_norm"
+  ],
+  "audit_seed": 7,
+  "candidate_slices": [
+   [
+    0,
+    3000
+   ]
+  ],
+  "n_queries": 70,
+  "L0": 1.9746314210551126,
+  "gq_norm_head": 3.717971140453498,
+  "gq_norm_full": 12.875844434506021,
+  "runner_sha256": "0debf2e1c7103862e16bbbdfc2b5240354c4ea88f61624787e278bf6b35042bb",
+  "torch": "2.9.1+cu128",
+  "transformers": "4.56.2",
+  "sources": {
+   "llama3_mmlu_pro_0_3000.json": "3ba1dcd4541c6484aca97d5c76b70ffb0df4c0b1cd891e82c4c1b3a5c740ccf5"
+  }
+ },
+ "llama3_gsm8k": {
+  "n": 3000,
+  "n_layers": 28,
+  "global_blocks": [
+   "shared_input_output",
+   "final_norm"
+  ],
+  "audit_seed": 7,
+  "candidate_slices": [
+   [
+    0,
+    3000
+   ]
+  ],
+  "n_queries": 8,
+  "L0": 1.159269966185093,
+  "gq_norm_head": 6.802867970774679,
+  "gq_norm_full": 19.81018300145921,
+  "runner_sha256": "0debf2e1c7103862e16bbbdfc2b5240354c4ea88f61624787e278bf6b35042bb",
+  "torch": "2.9.1+cu128",
+  "transformers": "4.56.2",
+  "sources": {
+   "llama3_gsm8k_0_3000.json": "6785e003a65015a01b95953e6268e1a09fddabb3f1c4b8197fe3f9482891cdea"
+  }
+ },
+ "llama3_codex": {
+  "n": 3000,
+  "n_layers": 28,
+  "global_blocks": [
+   "shared_input_output",
+   "final_norm"
+  ],
+  "audit_seed": 7,
+  "candidate_slices": [
+   [
+    0,
+    3000
+   ]
+  ],
+  "n_queries": 16,
+  "L0": 0.5822117384523153,
+  "gq_norm_head": 4.206326324878618,
+  "gq_norm_full": 18.16195610100917,
+  "runner_sha256": "0debf2e1c7103862e16bbbdfc2b5240354c4ea88f61624787e278bf6b35042bb",
+  "torch": "2.9.1+cu128",
+  "transformers": "4.56.2",
+  "sources": {
+   "llama3_codex_0_3000.json": "24ec702123e397b57322694622e981f01f5a66e591113d1fde4116f51b4193da"
+  }
+ },
+ "llama3_bbh": {
+  "n": 3000,
+  "n_layers": 28,
+  "global_blocks": [
+   "shared_input_output",
+   "final_norm"
+  ],
+  "audit_seed": 7,
+  "candidate_slices": [
+   [
+    0,
+    3000
+   ]
+  ],
+  "n_queries": 81,
+  "L0": 0.3759974831324301,
+  "gq_norm_head": 0.9817632527505706,
+  "gq_norm_full": 3.6154712875158777,
+  "runner_sha256": "0debf2e1c7103862e16bbbdfc2b5240354c4ea88f61624787e278bf6b35042bb",
+  "torch": "2.9.1+cu128",
+  "transformers": "4.56.2",
+  "sources": {
+   "llama3_bbh_0_3000.json": "11d859c51e801926db7d3845b4317ce60903943c50afea275e435a627f8c5d78"
+  }
+ },
+ "qwen_tydiqa": {
+  "n": 3000,
+  "n_layers": 36,
+  "global_blocks": [
+   "shared_input_output",
+   "final_norm"
+  ],
+  "audit_seed": 0,
+  "candidate_slices": [
+   [
+    0,
+    3000
+   ]
+  ],
+  "n_queries": 9,
+  "L0": 2.435586280292935,
+  "gq_norm_head": 24.985313556207906,
+  "gq_norm_full": 106.67277112997158,
+  "runner_sha256": "0debf2e1c7103862e16bbbdfc2b5240354c4ea88f61624787e278bf6b35042bb",
+  "torch": "2.9.1+cu128",
+  "transformers": "4.56.2",
+  "sources": {
+   "qwen_tydiqa_0_3000.json": "ebf38018ff626d3815262b1d7b621501f37a02a3d71f58668afa0eaded7adc93"
+  }
+ },
+ "qwen_mmlu_pro": {
+  "n": 3000,
+  "n_layers": 36,
+  "global_blocks": [
+   "shared_input_output",
+   "final_norm"
+  ],
+  "audit_seed": 0,
+  "candidate_slices": [
+   [
+    0,
+    3000
+   ]
+  ],
+  "n_queries": 70,
+  "L0": 1.8250834405422212,
+  "gq_norm_head": 8.355902385752245,
+  "gq_norm_full": 17.65738786631651,
+  "runner_sha256": "0debf2e1c7103862e16bbbdfc2b5240354c4ea88f61624787e278bf6b35042bb",
+  "torch": "2.9.1+cu128",
+  "transformers": "4.56.2",
+  "sources": {
+   "qwen_mmlu_pro_0_3000.json": "36c3232a8501924e62b7e32ebe88e0cc765588831e25f59411fc68522af75177"
+  }
+ },
+ "qwen_gsm8k": {
+  "n": 3000,
+  "n_layers": 36,
+  "global_blocks": [
+   "shared_input_output",
+   "final_norm"
+  ],
+  "audit_seed": 0,
+  "candidate_slices": [
+   [
+    0,
+    3000
+   ]
+  ],
+  "n_queries": 8,
+  "L0": 0.8824719861149788,
+  "gq_norm_head": 12.82414884301461,
+  "gq_norm_full": 33.88043270032688,
+  "runner_sha256": "0debf2e1c7103862e16bbbdfc2b5240354c4ea88f61624787e278bf6b35042bb",
+  "torch": "2.9.1+cu128",
+  "transformers": "4.56.2",
+  "sources": {
+   "qwen_gsm8k_0_3000.json": "1a4dd96a297817252b44c2b8b2618442f865433dc72a3df6f8d7ee00a6fc7bcc"
+  }
+ },
+ "qwen_codex": {
+  "n": 3000,
+  "n_layers": 36,
+  "global_blocks": [
+   "shared_input_output",
+   "final_norm"
+  ],
+  "audit_seed": 0,
+  "candidate_slices": [
+   [
+    0,
+    3000
+   ]
+  ],
+  "n_queries": 16,
+  "L0": 0.9010788612067699,
+  "gq_norm_head": 8.398847661248379,
+  "gq_norm_full": 20.21505444349509,
+  "runner_sha256": "0debf2e1c7103862e16bbbdfc2b5240354c4ea88f61624787e278bf6b35042bb",
+  "torch": "2.9.1+cu128",
+  "transformers": "4.56.2",
+  "sources": {
+   "qwen_codex_0_3000.json": "b8e47d64906aee4246db54723d2338e2ff8637599b4954d30a6cba5a2b818e61"
+  }
+ },
+ "qwen_bbh": {
+  "n": 3000,
+  "n_layers": 36,
+  "global_blocks": [
+   "shared_input_output",
+   "final_norm"
+  ],
+  "audit_seed": 0,
+  "candidate_slices": [
+   [
+    0,
+    3000
+   ]
+  ],
+  "n_queries": 81,
+  "L0": 0.36315492862536586,
+  "gq_norm_head": 2.5770641913431276,
+  "gq_norm_full": 5.560584445736469,
+  "runner_sha256": "0debf2e1c7103862e16bbbdfc2b5240354c4ea88f61624787e278bf6b35042bb",
+  "torch": "2.9.1+cu128",
+  "transformers": "4.56.2",
+  "sources": {
+   "qwen_bbh_0_3000.json": "a2f3b1a50c274a2f1d27b5248c33b71b56b2f188c1e492ff9a3707eabe734983"
+  }
+ },
+ "olmo3_tydiqa": {
+  "n": 2000,
+  "n_layers": 32,
+  "global_blocks": [
+   "embedding",
+   "final_norm",
+   "output_head"
+  ],
+  "audit_seed": 0,
+  "candidate_slices": [
+   [
+    1000,
+    1250
+   ],
+   [
+    1250,
+    1500
+   ],
+   [
+    1500,
+    1750
+   ],
+   [
+    1750,
+    2000
+   ],
+   [
+    2000,
+    2250
+   ],
+   [
+    2250,
+    2500
+   ],
+   [
+    2500,
+    2750
+   ],
+   [
+    2750,
+    3000
+   ]
+  ],
+  "n_queries": 9,
+  "L0": 2.663723991976844,
+  "gq_norm_head": 12.112912697755961,
+  "gq_norm_full": 38.7852584539452,
+  "runner_sha256": "0debf2e1c7103862e16bbbdfc2b5240354c4ea88f61624787e278bf6b35042bb",
+  "torch": "2.5.1+cu121",
+  "transformers": "4.57.1",
+  "sources": {
+   "olmo3_tydiqa_1000_1250.json": "4c10f70bb9e931eeae948e374d8ed07f313ae31d27f2c48363e557bd064a99c8",
+   "olmo3_tydiqa_1250_1500.json": "cacdd4b2ee2caaba771900ab3e9809ce841fbaeffc0a1d9b386721c5af0d395d",
+   "olmo3_tydiqa_1500_1750.json": "78daa87f15ef8fd7b945d1a46a8f3315c240b460c014b0119f12d85131c9140c",
+   "olmo3_tydiqa_1750_2000.json": "6706ac9b1099ab158762a067976ebd82632e06b6c6e94ba8ad6079f24212f0d8",
+   "olmo3_tydiqa_2000_2250.json": "f71c80a57bccef5fccdefd06bae2e4771685ce0167425257e7e198becae8b7fe",
+   "olmo3_tydiqa_2250_2500.json": "aa8c3eee233d3d322a1654bb99d2e7b2222a69cfbc5eca736b79c6fb85c51c33",
+   "olmo3_tydiqa_2500_2750.json": "b36fb2561ea8b40fc403037b5937596106dc72f3b64bf0afc505483667fe6b96",
+   "olmo3_tydiqa_2750_3000.json": "a31cdb59b48acf91c259ec56b2c6743a575c265e8018279fa465f976e42062d4"
+  }
+ },
+ "olmo3_mmlu_pro": {
+  "n": 2800,
+  "n_layers": 32,
+  "global_blocks": [
+   "embedding",
+   "final_norm",
+   "output_head"
+  ],
+  "audit_seed": 0,
+  "candidate_slices": [
+   [
+    0,
+    250
+   ],
+   [
+    450,
+    500
+   ],
+   [
+    500,
+    750
+   ],
+   [
+    750,
+    1000
+   ],
+   [
+    1000,
+    1250
+   ],
+   [
+    1250,
+    1500
+   ],
+   [
+    1500,
+    1750
+   ],
+   [
+    1750,
+    2000
+   ],
+   [
+    2000,
+    2250
+   ],
+   [
+    2250,
+    2500
+   ],
+   [
+    2500,
+    2750
+   ],
+   [
+    2750,
+    3000
+   ]
+  ],
+  "n_queries": 70,
+  "L0": 1.825274930681501,
+  "gq_norm_head": 3.2420778213379404,
+  "gq_norm_full": 7.340279588468491,
+  "runner_sha256": "0debf2e1c7103862e16bbbdfc2b5240354c4ea88f61624787e278bf6b35042bb",
+  "torch": "2.5.1+cu121",
+  "transformers": "4.57.1",
+  "sources": {
+   "olmo3_mmlu_pro_0_250.json": "b7c7ea1fdd37fd97bdac5fcc01a158a86512a4eb099f899d2fc3115aa2d7f082",
+   "olmo3_mmlu_pro_1000_1250.json": "acee17ca7c38cfaa7925ba36515760b60f396ba3aa5495906e368645691155cb",
+   "olmo3_mmlu_pro_1250_1500.json": "08f9826b7ff552debc6fb9a54e33650d09940f892c37456a09a184a612be01c5",
+   "olmo3_mmlu_pro_1500_1750.json": "17960df605c11c48855e2df5774bb077cec4e23a72fca031b644fb5abe91c5ec",
+   "olmo3_mmlu_pro_1750_2000.json": "3847c113364767db44f3b20ac01362dcc7009ebe961616622d7b535ec5b29e6e",
+   "olmo3_mmlu_pro_2000_2250.json": "1b1338fe6d9d5176537af76607e8c48a153f3adb071bc63795491eb9373dffe2",
+   "olmo3_mmlu_pro_2250_2500.json": "f9a3de5ccd884bf202bd9809a8c59216ff7a22bc948900e3bb564728117e911b",
+   "olmo3_mmlu_pro_2500_2750.json": "c754e31bfb0a926c56f34ac3e882c57fb83113e6f294a932c4b55367501d13b3",
+   "olmo3_mmlu_pro_2750_3000.json": "66752bb27d4522082dea8c761d68acb4955f660b75c923ffffdec604ddce7d4c",
+   "olmo3_mmlu_pro_450_500.json": "0c6b0ba0f8e482723128474e821e95df8ff0371016bfee7fc5ef4f9a9d6a2fd4",
+   "olmo3_mmlu_pro_500_750.json": "924cc9b2fb83c83bbea5827e9e2f3c0a4dcf8b52948299d572aa2c6f79155244",
+   "olmo3_mmlu_pro_750_1000.json": "c928dbce889b2ed7119a0c36f45d11c08bcfe115fb2406689624096f39ec5ee8"
+  }
+ },
+ "olmo3_gsm8k": {
+  "n": 2000,
+  "n_layers": 32,
+  "global_blocks": [
+   "embedding",
+   "final_norm",
+   "output_head"
+  ],
+  "audit_seed": 0,
+  "candidate_slices": [
+   [
+    1000,
+    1250
+   ],
+   [
+    1250,
+    1500
+   ],
+   [
+    1500,
+    1750
+   ],
+   [
+    1750,
+    2000
+   ],
+   [
+    2000,
+    2250
+   ],
+   [
+    2250,
+    2500
+   ],
+   [
+    2500,
+    2750
+   ],
+   [
+    2750,
+    3000
+   ]
+  ],
+  "n_queries": 8,
+  "L0": 1.004051387310028,
+  "gq_norm_head": 5.867645556465942,
+  "gq_norm_full": 10.594582274677302,
+  "runner_sha256": "0debf2e1c7103862e16bbbdfc2b5240354c4ea88f61624787e278bf6b35042bb",
+  "torch": "2.5.1+cu121",
+  "transformers": "4.57.1",
+  "sources": {
+   "olmo3_gsm8k_1000_1250.json": "08bff7bce99cbc8b3b243e9b1a25c7d1d03e7366372dc51e4c1e09de9e8eeab3",
+   "olmo3_gsm8k_1250_1500.json": "aa206391e4bc7390296220ec7c07f2bb89411bc9af9c3b3a65cd8fa288ee4538",
+   "olmo3_gsm8k_1500_1750.json": "605931e16c80f747ab42b85e8b8e9581545b08e154ac9292ef6f01ecac86962c",
+   "olmo3_gsm8k_1750_2000.json": "5b447c7d69c4547cdb59e1950fe28eec7851190e40e9a5f971eaa03c1d3bcc54",
+   "olmo3_gsm8k_2000_2250.json": "d0aed474111b5a5735cfe647776cb43278c108865b0f12c497cb1fa480fac44d",
+   "olmo3_gsm8k_2250_2500.json": "5e0ef785c20f46b599a6bb5f87e80cff5ddffe02a31bcdb3302be76be4d2cd55",
+   "olmo3_gsm8k_2500_2750.json": "3a3efe468d6a70257f5a4325fd95ac35ba762a2616d294d36d7aeb84647cc7a7",
+   "olmo3_gsm8k_2750_3000.json": "ca92746e6da2a52a13f33720643e209977674c537aa3cb8b906003f3b6da3d74"
+  }
+ },
+ "olmo3_codex": {
+  "n": 2000,
+  "n_layers": 32,
+  "global_blocks": [
+   "embedding",
+   "final_norm",
+   "output_head"
+  ],
+  "audit_seed": 0,
+  "candidate_slices": [
+   [
+    1000,
+    1250
+   ],
+   [
+    1250,
+    1500
+   ],
+   [
+    1500,
+    1750
+   ],
+   [
+    1750,
+    2000
+   ],
+   [
+    2000,
+    2250
+   ],
+   [
+    2250,
+    2500
+   ],
+   [
+    2500,
+    2750
+   ],
+   [
+    2750,
+    3000
+   ]
+  ],
+  "n_queries": 16,
+  "L0": 0.8233561515808105,
+  "gq_norm_head": 4.841680992352847,
+  "gq_norm_full": 8.330590298006666,
+  "runner_sha256": "0debf2e1c7103862e16bbbdfc2b5240354c4ea88f61624787e278bf6b35042bb",
+  "torch": "2.5.1+cu121",
+  "transformers": "4.57.1",
+  "sources": {
+   "olmo3_codex_1000_1250.json": "b04e13ef31a2a33da47e5a816fee12a518d6c0fa2d6acaf49f5df2394e5b5077",
+   "olmo3_codex_1250_1500.json": "161d79799d1cee0dca4d95afe282c793cc98486deab9f8ed73bdf6e533319ad0",
+   "olmo3_codex_1500_1750.json": "c761903c860c1dc95627e4c98351713405ad9a4e76db356d298b3bd222ee6bbd",
+   "olmo3_codex_1750_2000.json": "f4381f6c9e54c65e6f482bbb5011f317c62fa9dfd52311dcda309a81260b8f30",
+   "olmo3_codex_2000_2250.json": "a3c36f7a949146843fdb60771a7a04a7ce3759d57019ea599d5f981dda76d75b",
+   "olmo3_codex_2250_2500.json": "d0e679dccedb7377bbe9650020aa7d753ba4b7d9e0253a0e7eda234561e058fd",
+   "olmo3_codex_2500_2750.json": "7cf1e466ddc23a1322f859f32cacf163f9604ad93c077c4063d8a02092e01e51",
+   "olmo3_codex_2750_3000.json": "33bf85943d93efe34a09c156b6b12951c97ab0ae941092e0740ccf75432aa190"
+  }
+ },
+ "olmo3_bbh": {
+  "n": 3000,
+  "n_layers": 32,
+  "global_blocks": [
+   "embedding",
+   "final_norm",
+   "output_head"
+  ],
+  "audit_seed": 0,
+  "candidate_slices": [
+   [
+    0,
+    1000
+   ],
+   [
+    1000,
+    1250
+   ],
+   [
+    1250,
+    1500
+   ],
+   [
+    1500,
+    1750
+   ],
+   [
+    1750,
+    2000
+   ],
+   [
+    2000,
+    2250
+   ],
+   [
+    2250,
+    2500
+   ],
+   [
+    2500,
+    2750
+   ],
+   [
+    2750,
+    3000
+   ]
+  ],
+  "n_queries": 81,
+  "L0": 0.3373996579536685,
+  "gq_norm_head": 1.06373340104086,
+  "gq_norm_full": 1.9712502704757606,
+  "runner_sha256": "0debf2e1c7103862e16bbbdfc2b5240354c4ea88f61624787e278bf6b35042bb",
+  "torch": "2.5.1+cu121",
+  "transformers": "4.57.1",
+  "sources": {
+   "olmo3_bbh_merged_0_3000.json": "e592802d67f716915d6d6a01fab7142d3933389292b91e0485e0d2e98f3d6f8b"
+  }
+ }
+}

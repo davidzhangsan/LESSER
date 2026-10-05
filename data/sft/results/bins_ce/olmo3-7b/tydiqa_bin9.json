@@ -1,0 +1,1 @@
+{"task": "tydiqa", "bin": 9, "ce_loss": 2.886870178911421, "n_dev": 9, "model": "allenai/Olmo-3-1025-7B", "convention": "mean over dev queries of construct_test_sample CE", "env": "cluster; vllm/vllm-openai:v0.11.0 image with transformers 4.57.1", "seconds": 708}

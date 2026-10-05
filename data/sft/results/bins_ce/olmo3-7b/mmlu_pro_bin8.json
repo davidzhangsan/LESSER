@@ -1,0 +1,1 @@
+{"task": "mmlu_pro", "bin": 8, "ce_loss": 1.8646095505782536, "n_dev": 70, "model": "allenai/Olmo-3-1025-7B", "convention": "mean over dev queries of construct_test_sample CE", "env": "cluster; vllm/vllm-openai:v0.11.0 image with transformers 4.57.1", "seconds": 741}

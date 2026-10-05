@@ -1,0 +1,29 @@
+{
+ "P": 6738415616,
+ "T": 86343509,
+ "T_r": 25430302,
+ "N": 197196,
+ "lora_params": 134217728,
+ "lesser_pool_flops": 1163768143543083008,
+ "less_released_4ckpt_flops": 11321781460313374720,
+ "less_6PT_convention_flops": 13963642785260077056,
+ "ratio_released_with_projection": 9.728554199674429,
+ "ratio_released_without_projection": 8.23809033947072,
+ "ratio_6PT_convention": 11.998646691554793,
+ "projection_share_of_less": 0.15320507339657818,
+ "share_k1000": {
+  "lesser": 0.9704750914194598,
+  "less_released": 0.996882547402872,
+  "subtotal_ratio": 9.47084443488875
+ },
+ "share_k5000": {
+  "lesser": 0.8679683470317943,
+  "less_released": 0.9846047133201341,
+  "subtotal_ratio": 8.57610876066884
+ },
+ "share_k10000": {
+  "lesser": 0.7667350508759775,
+  "less_released": 0.9696762691696054,
+  "subtotal_ratio": 7.692488448361101
+ }
+}

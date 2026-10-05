@@ -1,0 +1,12 @@
+{
+  "model": "olmo3-7b",
+  "method": "baseprod",
+  "task": "codex",
+  "budget": 5000,
+  "seed": 0,
+  "metric_name": "pass@10",
+  "metric_value": 83.1081081081081,
+  "n_selected": 5000,
+  "base_model": "allenai/Olmo-3-1025-7B",
+  "env": "cluster"
+}

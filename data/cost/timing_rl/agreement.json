@@ -1,0 +1,38 @@
+{
+ "ingen_vs_prodsk": {
+  "n": 5120,
+  "live": 1794,
+  "spearman_live": 0.9946346573135817,
+  "top256_overlap": 0.96484375
+ },
+ "ingen_vs_prod": {
+  "n": 5120,
+  "live": 1794,
+  "spearman_live": 0.7807994894047183,
+  "top256_overlap": 0.77734375
+ },
+ "ingen_vs_sim": {
+  "n": 5120,
+  "live": 1794,
+  "spearman_live": 0.5515110932335656,
+  "top256_overlap": 0.5859375
+ },
+ "prodsk_vs_prod": {
+  "n": 5120,
+  "live": 1794,
+  "spearman_live": 0.782128725570951,
+  "top256_overlap": 0.76953125
+ },
+ "prodsk_vs_sim": {
+  "n": 5120,
+  "live": 1794,
+  "spearman_live": 0.5526082612296876,
+  "top256_overlap": 0.5859375
+ },
+ "prod_vs_sim": {
+  "n": 5120,
+  "live": 1794,
+  "spearman_live": 0.6922758232278841,
+  "top256_overlap": 0.6640625
+ }
+}

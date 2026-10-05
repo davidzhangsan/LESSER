@@ -1,0 +1,12 @@
+{
+  "model": "qwen3-4b",
+  "method": "baseprod",
+  "task": "gsm8k",
+  "budget": 10000,
+  "seed": 0,
+  "metric_name": "exact_match",
+  "metric_value": 78.08946171341927,
+  "n_selected": 10000,
+  "base_model": "Qwen/Qwen3-4B-Base",
+  "env": "workstation"
+}

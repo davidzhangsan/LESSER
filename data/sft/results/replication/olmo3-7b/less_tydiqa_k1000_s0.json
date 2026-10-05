@@ -1,0 +1,12 @@
+{
+  "model": "olmo3-7b",
+  "method": "less",
+  "task": "tydiqa",
+  "budget": 1000,
+  "seed": 0,
+  "metric_name": "f1",
+  "metric_value": 62.53059192892081,
+  "n_selected": 1000,
+  "base_model": "allenai/Olmo-3-1025-7B",
+  "env": "cluster"
+}

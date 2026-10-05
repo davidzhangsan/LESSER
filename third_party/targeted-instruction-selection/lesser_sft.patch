@@ -1,0 +1,50 @@
+diff --git a/evaluation/gsm/run_eval.py b/evaluation/gsm/run_eval.py
+index 98aaaaa..49d8623 100644
+--- a/evaluation/gsm/run_eval.py
++++ b/evaluation/gsm/run_eval.py
+@@ -25,6 +25,15 @@ from evaluation.utils import (
+ exact_match = evaluate.load("exact_match")
+ 
+ 
++def chat_stop_sequences():
++    """LESSER: TIS_GSM_CHAT_STOP=blank_line stops chat-format generations at a blank line (used by the Appendix A.1
++    replication runs of the paper); unset or "none" is the upstream behavior (no stop sequence in chat format)."""
++    mode = os.environ.get("TIS_GSM_CHAT_STOP", "none")
++    if mode not in ("none", "blank_line"):
++        raise ValueError(f"TIS_GSM_CHAT_STOP must be 'none' or 'blank_line', got {mode!r}")
++    return ["\n\n"] if mode == "blank_line" else None
++
++
+ def main(args):
+     random.seed(42)
+ 
+@@ -121,7 +130,7 @@ def main(args):
+                 temperature=0,
+                 max_tokens=512,
+                 # we only use stop token for non-chat format (usually applied to vanilla pretrained language models). For chat format, we will rely on the model knows when to stop.
+-                stop=["\n"] if not args.use_chat_format else None,
++                stop=["\n"] if not args.use_chat_format else chat_stop_sequences(),
+             )
+             if args.use_chat_format:
+                 prompts = [
+diff --git a/training/train_sft.py b/training/train_sft.py
+index 0a28a35..1d193bd 100644
+--- a/training/train_sft.py
++++ b/training/train_sft.py
+@@ -110,8 +110,14 @@ def train():
+         trust_remote_code=True,
+         **kwargs,
+     )
+-    tokenizer.add_special_tokens({"pad_token": "[PAD]"})
+-    model.resize_token_embeddings(len(tokenizer))
++    # LESSER: TIS_PAD_TOKEN_MODE=if_missing keeps a tokenizer's own pad token (used by the five-shot MMLU-Pro
++    # runs of the paper); unset or "always" is the upstream behavior (add [PAD] and resize the embeddings).
++    pad_token_mode = os.environ.get("TIS_PAD_TOKEN_MODE", "always")
++    if pad_token_mode not in ("always", "if_missing"):
++        raise ValueError(f"TIS_PAD_TOKEN_MODE must be 'always' or 'if_missing', got {pad_token_mode!r}")
++    if pad_token_mode == "always" or tokenizer.pad_token is None:
++        tokenizer.add_special_tokens({"pad_token": "[PAD]"})
++        model.resize_token_embeddings(len(tokenizer))
+ 
+     if train_cfg.use_lora:
+         if "llama" in train_cfg.model_name.lower():

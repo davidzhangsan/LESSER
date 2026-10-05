@@ -1,0 +1,31 @@
+{
+ "task": "codex",
+ "bin": 1,
+ "ce_loss": 0.9258876219391823,
+ "model": "meta-llama/Llama-2-7b-hf",
+ "convention": "mean over dev queries of construct_test_sample CE",
+ "n_dev": 16,
+ "per_query": [
+  0.7802539467811584,
+  0.5536289215087891,
+  2.5081517696380615,
+  0.787856936454773,
+  0.7282059788703918,
+  0.6467611789703369,
+  0.655187726020813,
+  1.4524012804031372,
+  0.7843827605247498,
+  0.5262377262115479,
+  0.7538346648216248,
+  0.7212273478507996,
+  0.7000272870063782,
+  1.0844532251358032,
+  1.0295087099075317,
+  1.1020824909210205
+ ],
+ "rerun": "A100, Nayak et al.'s training.train_sft, full fine-tune, 2 epochs, lr 2e-5, effective batch 128, seed 0, gradient checkpointing",
+ "train_jsonl_sha256": "359905c5444ae82d48fd509d23d52ddf9bb7407c3f572eb45dd5a89f88927fb4",
+ "replaces_ce_loss": 0.533151188865304,
+ "base_model_ce": 0.9514752365648746,
+ "reason": "the first runs of these cells gave 0.53-0.62 for every bin against 0.951 for the untrained model under the same convention"
+}

@@ -1,0 +1,12 @@
+{
+  "model": "llama",
+  "method": "baseprod",
+  "task": "tydiqa",
+  "budget": 5000,
+  "seed": 1,
+  "metric_name": "f1",
+  "metric_value": 62.753309505996036,
+  "n_selected": 5000,
+  "base_model": "meta-llama/Llama-3.2-3B",
+  "env": "workstation"
+}

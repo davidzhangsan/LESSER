@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lesser"
+version = "0.1.0"
+description = "LESSER: post-training data selection with output-layer gradients"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["torch>=2.1", "numpy>=1.24"]
+
+[project.optional-dependencies]
+# SFT extraction, selection, fine-tuning and evaluation (see sft/README.md and third_party/)
+sft = ["transformers>=4.40", "datasets>=2.18"]
+# Figure and table regeneration: ReportLab figures, TensorBoard event parsing, PDF payload and pixel checks
+# (the pixel checks also call pdftoppm from poppler-utils). GRACE reruns use the environment built by
+# third_party/GRACE (see grace/README.md); regenerating the GRACE tables needs only numpy.
+figures = ["reportlab>=4.0", "tensorboard>=2.14", "pypdf>=4.0", "pillow>=10.0", "scipy>=1.10"]
+
+[tool.setuptools]
+packages = ["lesser"]

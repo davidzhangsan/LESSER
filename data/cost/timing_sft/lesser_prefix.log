@@ -1,0 +1,6 @@
+`torch_dtype` is deprecated! Use `dtype` instead!
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:01<00:01,  1.41s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:01<00:00,  1.16it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:01<00:00,  1.06it/s]
+Using the latest cached version of the dataset since Harvard-DCML/tulu-v2-197K-processed couldn't be found on the Hugging Face Hub (offline mode is enabled).
+Found the latest cached dataset configuration 'default' at <HF_HOME>/datasets/Harvard-DCML___tulu-v2-197_k-processed/default/0.0.0/e217e5f72f7a0d10748d4c61abc5856338d90c7f (last modified on Mon Sep 21 07:21:39 2026).
+[shard 0_10000] 10000/10000 rate=17.80/s eta_s=0
+[shard 0_10000] DONE 10000 items

@@ -1,0 +1,1 @@
+{"task": "tydiqa", "bin": 5, "ce_loss": 1.1754479325479932, "model": "meta-llama/Llama-2-7b-hf", "convention": "mean over dev queries of construct_test_sample CE"}
